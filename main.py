@@ -25,7 +25,7 @@ def scale(app):
     return dpi / GLOBAL_DPI_SCALE_POINT
 
 
-SIZE = (800, 500)
+SIZE = (975, 610)
 
 
 class MainWindow(QMainWindow):
@@ -34,9 +34,15 @@ class MainWindow(QMainWindow):
         
         self.scale = scale
         
-        self.weather = Weather(str(current_location()))
+        self.setStyleSheet("""
+            QMainWindow {
+                border-image: url('lightpartly.png') 0 0 0 0 stretch stretch;
+            }
+        """)
+        
+        self.weather = Weather("Phoenix")
         self.weather.check()
-        test = text(self.weather.retrieve()['weather'][0]['main'], "black", poppins("semi bold"), self.s(50), self)
+        test = text(self.weather.retrieve()['weather'][0]['main'], "white", poppins("semi bold"), self.s(50), self)
         test.move(self.s(100), self.s(100))
         
         self.setFixedSize(self.s(SIZE[0]), self.s(SIZE[1]))
