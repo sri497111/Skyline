@@ -53,14 +53,14 @@ class MainWindow(QMainWindow):
         weather = self.weather.retrieve()
         print(weather)
         test = text(weather['weather'][0]['main'], "white", poppins("semi bold"), self.s(50), self)
-        test.move(210, 100)
+        test.move(self.s(210), self.s(100))
         
         self.condition_icon = QSvgWidget(self)
         self.condition_icon.load("./Icons/cloudy.svg")
         self.condition_icon.setGeometry(self.s(90), self.s(90), self.s(120), self.s(120))
         
         temperature = text(str(weather['main']['temp']), "white", poppins("semi bold"), self.s(50), self)
-        temperature.move(510, 100)
+        temperature.move(self.s(510), self.s(100))
         
         print(self.s(SIZE[0]), self.s(SIZE[1]))
         
