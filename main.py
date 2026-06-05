@@ -1,6 +1,6 @@
 # Qt Imports
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QWidget, QPushButton, 
+    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFontDatabase, QPixmap
@@ -18,63 +18,37 @@ import datetime
 
 # --------------------------------------------------------------------------
 
-GLOBAL_DPI_SCALE_POINT = 96.0
 
-def scale(app):
-    screen = app.primaryScreen()
-    dpi = screen.logicalDotsPerInch()
-    return dpi / GLOBAL_DPI_SCALE_POINT
-
-
-SIZE = (975, 610)
+SIZE = (975*0.9, 610*0.9)
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, scale):
+    def __init__(self):
         super().__init__()
-        self.scale = scale
-        self.setFixedSize(self.s(SIZE[0]), self.s(SIZE[1]))
-        self.windowsize = (self.s(SIZE[0]), self.s(SIZE[1]))
+        self.setFixedSize(SIZE[0], SIZE[1])
+        self.windowsize = (SIZE[0], SIZE[1])
         self.setStyleSheet("""
             QMainWindow {
                 border-image: url('./Backgrounds/cloudy/clouds.png') 0 0 0 0 stretch stretch;
             }
         """)
         
-        
-        
         self.element = QPixmap("./Backgrounds/cloudy/elementblur.png")
         
-        self.mainbox = Card(self, self.element, self.s(self.windowsize[0]/2)-450, self.s(250), self.s(900), self.s(400))
         
-        self.weather = Weather(current_location())
-        print(current_location())
-        self.weather.check()
-        weather = self.weather.retrieve()
-        print(weather)
-        test = text(weather['weather'][0]['main'], "white", poppins("semi bold"), self.s(50), self)
-        test.move(self.s(210), self.s(100))
-        
-        self.condition_icon = QSvgWidget(self)
-        self.condition_icon.load("./Icons/cloudy.svg")
-        self.condition_icon.setGeometry(self.s(90), self.s(90), self.s(120), self.s(120))
-        
-        temperature = text(str(weather['main']['temp']), "white", poppins("semi bold"), self.s(50), self)
-        temperature.move(self.s(510), self.s(100))
-        
-        print(self.s(SIZE[0]), self.s(SIZE[1]))
+        widget = QWidget()
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 5, 30 ,10)
+        main_layout.addWidget(Card(widget, self.element, 200))
+        main_layout.addWidget(Card(widget, self.element, 500))
+        widget.setLayout(main_layout)
+        self.setCentralWidget(widget)
         
         
-    def s(self, value):
-        return int(value*self.scale)
-def main():
-    QApplication.setAttribute(Qt.AA_DisableHighDpiScaling, True)
-    
+def main():   
     app = QApplication(sys.argv)
     
-    scale_point = scale(app)
-    
-    window = MainWindow(scale_point)
+    window = MainWindow()
     
     
     window.show()
