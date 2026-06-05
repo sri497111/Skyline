@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QFrame
+from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
@@ -6,35 +6,48 @@ from PyQt5.QtCore import Qt
 
 
 class Card(QFrame):
-    def __init__(self, parent, pixmap, x, y, w, h):
+    def __init__(self, parent, pixmap, h=200):
         super().__init__(parent)
-        self.setGeometry(x, y, w, h)
+        self.setFixedHeight(h)
+        
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         path = QPainterPath()
-        path.addRoundedRect(0, 0, w, h, 55, 55)
-        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
         
-        scaled = pixmap.scaled(parent.width(), parent.height(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-        self.crop = scaled.copy(x, y, w, h)
+        self.pixmap = pixmap
         
         self.bg = QLabel(self)
-        self.bg.setGeometry(0, 0, w, h)
         self.bg.setScaledContents(True)
-        self.bg.setPixmap(self.crop)
         
         
-        
-        self.bg.show()
         
         self.dark = QLabel(self)
-        self.dark.setGeometry(0, 0, w, h)
         self.dark.setStyleSheet("""
                 background: rgba(0,0,0,30);
                 border-radius: 55px;
         """)
-        self.dark.raise_()
-        self.show()
+        
+        
+        
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        w = self.width()
+        h = self.height()
+        
+        self.bg.setGeometry(0, 0, w, h)
+        self.dark.setGeometry(0, 0, w, h)
 
+        path = QPainterPath()
+        path.addRoundedRect(0, 0, w, h, 55, 55)
+        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        
+        if self.parent():
+            scaled = self.pixmap.scaled(self.parent().width(), self.parent().height(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+            self.crop = scaled.copy(self.x(), self.y(), w, h)
+            self.bg.setPixmap(self.crop)
+        self.bg.show()
+        self.dark.raise_()
+        
 def poppins(weight):
     weight = str(weight).title().replace(" ", "")
     font = QFontDatabase.addApplicationFont(f"./Font/poppins/Poppins-{weight}.ttf")
