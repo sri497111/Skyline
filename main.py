@@ -1,6 +1,6 @@
 # Qt Imports
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout
+    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFontDatabase, QPixmap
@@ -19,7 +19,7 @@ import datetime
 # --------------------------------------------------------------------------
 
 
-SIZE = (975*0.9, 610*0.9)
+SIZE = (878, 550)
 
 
 class MainWindow(QMainWindow):
@@ -36,11 +36,25 @@ class MainWindow(QMainWindow):
         self.element = QPixmap("./Backgrounds/cloudy/elementblur.png")
         
         
+        
         widget = QWidget()
+        
+        hourly_forecast = Card(widget, self.element, 200)
+        daily_forecast = Card(widget, self.element, 500)
+        daily_forecast.setContentsMargins(35,0,0,0)
+        
+        condition = text("Cloudy", "white", poppins("semi bold"), 50, widget)
+        condition.setContentsMargins(35, 0, 0, 0)
+        
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(30, 5, 30 ,10)
-        main_layout.addWidget(Card(widget, self.element, 200))
-        main_layout.addWidget(Card(widget, self.element, 500))
+        main_layout.setContentsMargins(25, 75, 25, 25)
+        main_layout.setSpacing(30)
+        
+        main_layout.addWidget(condition)
+        main_layout.addWidget(hourly_forecast)
+        main_layout.addSpacing(150)
+        main_layout.addWidget(daily_forecast)
+        
         widget.setLayout(main_layout)
         self.setCentralWidget(widget)
         
