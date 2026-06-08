@@ -40,9 +40,8 @@ class Card(QFrame):
             
         card_global = self.mapToGlobal(self.rect().topLeft())
         window_global = self.window().mapToGlobal(self.window().rect().topLeft())
-        relativex = card_global.x() - window_global.x()
         relativey = card_global.y() - window_global.y()
-        crop = self.scaled.copy(relativex, relativey, w, h)
+        crop = self.scaled.copy(0, relativey, w, h)
             
         self.bg.setPixmap(crop)
         self.dark.raise_()

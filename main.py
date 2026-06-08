@@ -45,9 +45,9 @@ class MainWindow(QMainWindow):
         
         widget = QWidget()
         self.viewport = QWidget(widget)
-        self.viewport.setGeometry(0, 0, 878, 1200)
+        self.viewport.setGeometry(0, 0, 878, 1000)
         
-        self.hourly_forecast = Card(self.viewport, self.element, 400)
+        self.hourly_forecast = Card(self.viewport, self.element, 200)
         self.daily_forecast = Card(self.viewport, self.element, 500)
         self.daily_forecast.setContentsMargins(35,0,0,0)
         
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.intertia)
-        self.timer.start(8)
+        self.timer.start(16)
         self.viewport.setLayout(main_layout)
         self.setCentralWidget(widget)
         
@@ -76,6 +76,8 @@ class MainWindow(QMainWindow):
         self.v *= self.friction
         if self.v * self.v < 0.01:
             self.v = 0
+        if self.v == 0:
+            return
         self.viewport.move(0, int(self.yv))
         self.hourly_forecast.updatePixmap()
         self.daily_forecast.updatePixmap()
