@@ -13,6 +13,7 @@ from retrieve import Weather
 from ui_engine import Card, text, button, poppins
 
 # System
+from system import *
 import sys
 import datetime
 
@@ -20,6 +21,8 @@ import datetime
 
 
 SIZE = (878, 550)
+
+
 
 
 class MainWindow(QMainWindow):
@@ -65,22 +68,24 @@ class MainWindow(QMainWindow):
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.intertia)
-        self.timer.start(16)
+        self.timer.start(17)
         self.viewport.setLayout(main_layout)
         self.setCentralWidget(widget)
         
     def wheelEvent(self, event):
         self.v += event.angleDelta().y() * self.sensitvity
     def intertia(self):
-        self.yv += self.v
-        self.v *= self.friction
-        if self.v * self.v < 0.01:
-            self.v = 0
-        if self.v == 0:
-            return
-        self.viewport.move(0, int(self.yv))
-        self.hourly_forecast.updatePixmap()
-        self.daily_forecast.updatePixmap()
+        if self.v > 0.05 or self.v < -0.05:
+            self.yv += self.v
+            self.v *= self.friction
+            
+            self.viewport.move(0, int(self.yv))
+            self.hourly_forecast.updatePixmap()
+            self.daily_forecast.updatePixmap()
+        else:
+            if self.v != 0:
+                self.v = 0
+        
             
 def main():   
     app = QApplication(sys.argv)

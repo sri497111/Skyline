@@ -78,7 +78,7 @@ def poppins(weight):
 
 
 def text(text, color, font, size=20, parent=None):
-    value = get_dpi()/96
+    value = 96/get_dpi()
     label = QLabel(text, parent)
     label.setFont(QFont(font, size*value))
     label.setStyleSheet(f"color: {color}")
