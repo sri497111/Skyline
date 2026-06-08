@@ -6,15 +6,20 @@ from PyQt5.QtCore import Qt
 
 
 class Card(QFrame):
-    def __init__(self, parent, pixmap, h=200):
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550)):
         super().__init__(parent)
         self.setFixedHeight(h)
+        
+        
         
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         path = QPainterPath()
         
         self.pixmap = pixmap
+        self.window_size = window_size
+        
+        self.scaled = self.pixmap.scaled(878, 550, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
         
         self.bg = QLabel(self)
         self.bg.setScaledContents(True)
@@ -28,11 +33,25 @@ class Card(QFrame):
         """)
         
         
+    def updatePixmap(self):
+        h = self.height()
+        w = self.width()
+        
+            
+        card_global = self.mapToGlobal(self.rect().topLeft())
+        window_global = self.window().mapToGlobal(self.window().rect().topLeft())
+        relativex = card_global.x() - window_global.x()
+        relativey = card_global.y() - window_global.y()
+        crop = self.scaled.copy(relativex, relativey, w, h)
+            
+        self.bg.setPixmap(crop)
+        self.dark.raise_()
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        w = self.width()
+        
         h = self.height()
+        w = self.width()
         
         self.bg.setGeometry(0, 0, w, h)
         self.dark.setGeometry(0, 0, w, h)
@@ -41,12 +60,10 @@ class Card(QFrame):
         path.addRoundedRect(0, 0, w, h, 55, 55)
         self.setMask(QRegion(path.toFillPolygon().toPolygon()))
         
-        if self.parent():
-            scaled = self.pixmap.scaled(self.parent().width(), self.parent().height(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-            self.crop = scaled.copy(self.x(), self.y(), w, h)
-            self.bg.setPixmap(self.crop)
-        self.bg.show()
-        self.dark.raise_()
+        self.updatePixmap()
+        
+        
+        
         
 def poppins(weight):
     weight = str(weight).title().replace(" ", "")
