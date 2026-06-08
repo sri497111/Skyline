@@ -1,7 +1,8 @@
-from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy
+from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
+from system import *
 
 
 
@@ -74,13 +75,18 @@ def poppins(weight):
         return QFontDatabase.applicationFontFamilies(font)[0]
     
 
+
+
 def text(text, color, font, size=20, parent=None):
+    value = get_dpi()/96
     label = QLabel(text, parent)
-    label.setFont(QFont(font, size))
+    label.setFont(QFont(font, size*value))
     label.setStyleSheet(f"color: {color}")
+    
     if parent:
         label.show()
         label.adjustSize()
+    
     return label
 
 def button():
