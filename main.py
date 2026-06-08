@@ -29,7 +29,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setFixedSize(SIZE[0], SIZE[1])
+        
         self.windowsize = (SIZE[0], SIZE[1])
+        self.refresh_rate = get_refresh_rate()
+        self.frequency = int(round(1000/self.refresh_rate, 0))
         
         self.friction = 0.92
         self.sensitvity = 0.03
@@ -68,8 +71,11 @@ class MainWindow(QMainWindow):
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.intertia)
-        self.timer.start(17)
+        self.timer.start(self.frequency)
+        
+        
         self.viewport.setLayout(main_layout)
+        
         self.setCentralWidget(widget)
         
     def wheelEvent(self, event):
