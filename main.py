@@ -10,7 +10,7 @@ from PyQt5.QtSvg import QSvgWidget
 # Modules
 from location import *
 from retrieve import Weather
-from ui_engine import Card, text, button, poppins
+from ui_engine import Card, text, Button, poppins
 
 # System
 from system import *
@@ -21,8 +21,6 @@ import datetime
 
 
 SIZE = (878, 550)
-
-
 
 
 class MainWindow(QMainWindow):
@@ -55,6 +53,7 @@ class MainWindow(QMainWindow):
         
         self.hourly_forecast = Card(self.viewport, self.element, 200)
         self.daily_forecast = Card(self.viewport, self.element, 500)
+        #self.but = Button(self.viewport, "Hello", self.element, 300, 50)
         self.daily_forecast.setContentsMargins(35,0,0,0)
         
         condition = text("Cloudy", "white", poppins("semi bold"), 50, self.viewport)
@@ -65,6 +64,7 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(30)
         
         main_layout.addWidget(condition)
+        #main_layout.addWidget(self.but)
         main_layout.addWidget(self.hourly_forecast)
         
         main_layout.addWidget(self.daily_forecast)
@@ -88,6 +88,7 @@ class MainWindow(QMainWindow):
             self.viewport.move(0, int(self.yv))
             self.hourly_forecast.updatePixmap()
             self.daily_forecast.updatePixmap()
+            #self.but.updatePixmap()
         else:
             if self.v != 0:
                 self.v = 0

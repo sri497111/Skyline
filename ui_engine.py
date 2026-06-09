@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication
+from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
@@ -11,8 +11,6 @@ class Card(QFrame):
         super().__init__(parent)
         self.setFixedHeight(h)
         
-        
-        
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         path = QPainterPath()
@@ -20,12 +18,10 @@ class Card(QFrame):
         self.pixmap = pixmap
         self.window_size = window_size
         
-        self.scaled = self.pixmap.scaled(878, 550, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        self.scaled = self.pixmap.scaled(878, 550, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         
         self.bg = QLabel(self)
         self.bg.setScaledContents(True)
-        
-        
         
         self.dark = QLabel(self)
         self.dark.setStyleSheet("""
@@ -56,14 +52,49 @@ class Card(QFrame):
         self.bg.setGeometry(0, 0, w, h)
         self.dark.setGeometry(0, 0, w, h)
 
-        path = QPainterPath()
-        path.addRoundedRect(0, 0, w, h, 55, 55)
-        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        self.path = QPainterPath()
+        self.path.addRoundedRect(0, 0, w, h, 55, 55)
+        self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
         
+
+class Button(Card):
+    def __init__(self, parent, text, pixmap, w, h, font_size=64):
+        super().__init__(parent, pixmap, h)
+        self.setFixedHeight(h)
+        self.setFixedWidth(w)
         
         
+        self.p = parent
+        self.pixmap = pixmap
+        self.h = h
+        self.w = w
+        self.text = text
+        
+        self.font_fam = poppins("semi bold")
+        button_font = QFont(self.font_fam, font_size)
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0,0,0,0)
+        self.button = QPushButton(self.text, self)
+        self.button.setStyleSheet(f"background: transparent; color: white; border: none; text-align: center; padding-bottom: 0px; margin: 0px; font-size: 48px;")
+        self.button.setFont(button_font)
+        
+        self.button.setFixedHeight(self.h)
+        self.button.setFixedWidth(self.w)
+        self.button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        layout.addWidget(self.button)
+        
+        
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        
+        w = self.width()
+        h = self.height()
+        
+        self.button.setGeometry(0, 0, w, h)
+        self.button.raise_()
         
 def poppins(weight):
     weight = str(weight).title().replace(" ", "")
@@ -89,5 +120,3 @@ def text(text, color, font, size=20, parent=None):
     
     return label
 
-def button():
-    pass
