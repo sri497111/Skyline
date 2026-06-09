@@ -3,7 +3,7 @@ from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from system import *
-
+import cairosvg
 
 
 class Card(QFrame):
@@ -120,3 +120,12 @@ def text(text, color, font, size=20, parent=None):
     
     return label
 
+def svg(path, width, height):
+    data = cairosvg.svg2png(url=path, output_width=width, output_height=height)
+    pixmap = QPixmap()
+    pixmap.loadFromData(data)
+    
+    icon_label = QLabel()
+    icon_label.setFixedSize(width, height)
+    icon_label.setPixmap(pixmap)
+    return icon_label

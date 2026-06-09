@@ -1,6 +1,6 @@
 # Qt Imports
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QSpacerItem, QSizePolicy
+    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFontDatabase, QPixmap
@@ -10,7 +10,7 @@ from PyQt5.QtSvg import QSvgWidget
 # Modules
 from location import *
 from retrieve import Weather
-from ui_engine import Card, text, Button, poppins
+from ui_engine import Card, text, Button, poppins, svg
 
 # System
 from system import *
@@ -39,12 +39,13 @@ class MainWindow(QMainWindow):
         
         self.setStyleSheet("""
             QMainWindow {
-                border-image: url('./Backgrounds/cloudy/blurclouds.png') 0 0 0 0 stretch stretch;
+                border-image: url('./Backgrounds/partly/blurred1.png') 0 0 0 0 stretch stretch;
             }
         """)
         
         
-        self.element = QPixmap("./Backgrounds/cloudy/elementblur.png")
+        self.element = QPixmap("./Backgrounds/partly/element1.png")
+        
         
         
         widget = QWidget()
@@ -52,19 +53,38 @@ class MainWindow(QMainWindow):
         self.viewport.setGeometry(0, 0, 878, 1000)
         
         self.hourly_forecast = Card(self.viewport, self.element, 200)
+        
+        self.timeline = QHBoxLayout(self.hourly_forecast)
+        self.populate_hourly_forecast()
+        
+        
         self.daily_forecast = Card(self.viewport, self.element, 500)
-        #self.but = Button(self.viewport, "Hello", self.element, 300, 50)
         self.daily_forecast.setContentsMargins(35,0,0,0)
         
-        condition = text("Cloudy", "white", poppins("semi bold"), 50, self.viewport)
-        condition.setContentsMargins(35, 0, 0, 0)
+        status = QWidget(self.viewport)
+        status.setGeometry(35, 75, 500, 60)
+        status_layout = QHBoxLayout(status)
+        status_layout.setContentsMargins(20, 0, 0, 0)
+        status_layout.setSpacing(15)
+        status_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        
+        condition_icon = svg("./Icons/partly-cloudy-day.svg", 125, 125)
+        
+        
+        condition = text("Partly Cloudy", "white", poppins("semi bold"), 43, status)
+        condition.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        condition.setContentsMargins(0, 12, 0, 0)
+        condition.setMinimumWidth(200)
+        
+        status_layout.addWidget(condition_icon)
+        status_layout.addWidget(condition)
         
         main_layout = QVBoxLayout(self.viewport)
         main_layout.setContentsMargins(25, 75, 25, 25)
         main_layout.setSpacing(30)
         
-        main_layout.addWidget(condition)
-        #main_layout.addWidget(self.but)
+        main_layout.addWidget(status)
+        
         main_layout.addWidget(self.hourly_forecast)
         
         main_layout.addWidget(self.daily_forecast)
@@ -88,12 +108,39 @@ class MainWindow(QMainWindow):
             self.viewport.move(0, int(self.yv))
             self.hourly_forecast.updatePixmap()
             self.daily_forecast.updatePixmap()
-            #self.but.updatePixmap()
+            
         else:
             if self.v != 0:
                 self.v = 0
         
+    def populate_hourly_forecast(self):
+        
+        self.timeline.setAlignment(Qt.AlignCenter)
+        self.timeline.setSpacing(60)
+        for i in range(5):
             
+            vertical_widget = QWidget()
+            vdata = QVBoxLayout(vertical_widget)
+            vdata.setContentsMargins(0,0,0,0)
+            vdata.setSpacing(0)
+            
+            time = text("9 AM", "white", poppins("semi bold"), 18, vertical_widget)
+            time.setAlignment(Qt.AlignCenter)
+            
+            condition = svg("./Icons/partly-cloudy-day.svg", 83, 83)
+            
+            
+            temp = text("67", "white", poppins("semi bold"), 18, vertical_widget)
+            temp.setAlignment(Qt.AlignCenter)
+            
+            vdata.addWidget(time)
+            
+            vdata.addWidget(condition)
+            vdata.addSpacing(8)
+            vdata.addWidget(temp)
+            vdata.setAlignment(Qt.AlignCenter)
+            
+            self.timeline.addWidget(vertical_widget)
 def main():   
     app = QApplication(sys.argv)
     
