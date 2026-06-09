@@ -12,13 +12,13 @@ class Weather:
         self.location = location
         self.key = random.choice(key).strip()
     def init_url(self, weather_type="condition"):
-        latitude = str(self.location[0])
-        longitude = str(self.location[1])
+        self.lat= str(self.location[0])
+        self.lon = str(self.location[1])
         if weather_type == "condition":
-            self.url = f"http://api.openweathermap.org/data/2.5/weather?q={self.location}&appid={self.key}"
+            self.url = f"http://api.openweathermap.org/data/2.5/weather?lat={self.lat}&lon={self.lon}&units=imperial&appid={self.key}"
         elif weather_type == "hourly":
-            self.url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&units=imperial&appid={self.key}"
-    def retrieve_current_condition(self):
+            self.url = f"https://api.openweathermap.org/data/2.5/forecast?lat={self.lat}&lon={self.lon}&units=imperial&appid={self.key}"
+    def retrieve_current_weather(self):
         self.response = requests.get(self.url)
         self.data = self.response.json()
         if self.data['cod'] != 404:
@@ -32,11 +32,7 @@ class Weather:
             return self.data
         else:
             return "Error 404"
-    
-    
-weather = Weather((40.71, -74.01))
-weather.init_url("hourly")
-data = weather.retrieve_hourly_forecast()      
+
 def parse_hourly_forecast(data, increment=8):
     forecast = []
     
@@ -57,4 +53,3 @@ def parse_hourly_forecast(data, increment=8):
         
         forecast.append([time, conditions, temp])
     return forecast
-print(parse_hourly_forecast(data))

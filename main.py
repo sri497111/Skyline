@@ -9,7 +9,7 @@ from PyQt5.QtSvg import QSvgWidget
 
 # Modules
 from location import *
-from retrieve import Weather
+from retrieve import Weather, parse_hourly_forecast
 from ui_engine import Card, text, Button, poppins, svg
 
 # System
@@ -46,7 +46,14 @@ class MainWindow(QMainWindow):
         
         self.element = QPixmap("./Backgrounds/partly/element1.png")
         
+        self.current_weather = Weather(current_location("coords"))
+        self.current_weather.init_url()
+        self.current_weather_data = self.current_weather.retrieve_current_weather()
+        self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))+"\u00b0"
         
+        self.current_weather.init_url("hourly")
+        self.weather_forecast_data = self.current_weather.retrieve_hourly_forecast()
+        self.weather_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
         
         widget = QWidget()
         self.viewport = QWidget(widget)
@@ -55,7 +62,7 @@ class MainWindow(QMainWindow):
         self.hourly_forecast = Card(self.viewport, self.element, 200)
         
         self.timeline = QHBoxLayout(self.hourly_forecast)
-        self.populate_hourly_forecast()
+        self.populate_hourly_forecast(self.weather_forecast_data)
         
         
         self.daily_forecast = Card(self.viewport, self.element, 500)
@@ -68,10 +75,10 @@ class MainWindow(QMainWindow):
         status_layout.setSpacing(15)
         status_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         
-        condition_icon = svg("./Icons/partly-cloudy-day.svg", 125, 125)
+        condition_icon = svg("./Icons/partly-cloudy-day.svg", 171, 171)
         
         
-        condition = text("Partly Cloudy", "white", poppins("semi bold"), 43, status)
+        condition = text(self.current_temp, "white", poppins("semi bold"), 60, status)
         condition.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         condition.setContentsMargins(0, 12, 0, 0)
         condition.setMinimumWidth(200)
@@ -113,7 +120,7 @@ class MainWindow(QMainWindow):
             if self.v != 0:
                 self.v = 0
         
-    def populate_hourly_forecast(self):
+    def populate_hourly_forecast(self, forecast_data):
         
         self.timeline.setAlignment(Qt.AlignCenter)
         self.timeline.setSpacing(60)
@@ -124,14 +131,19 @@ class MainWindow(QMainWindow):
             vdata.setContentsMargins(0,0,0,0)
             vdata.setSpacing(0)
             
-            time = text("9 AM", "white", poppins("semi bold"), 18, vertical_widget)
+            time = text(str(forecast_data[i][0]), "white", poppins("semi bold"), 18, vertical_widget)
             time.setAlignment(Qt.AlignCenter)
             
-            condition = svg("./Icons/partly-cloudy-day.svg", 83, 83)
+            if str(forecast_data[i][1]).lower() == "clouds":
+                condition = svg("./Icons/cloudy.svg", 83, 83)
+            elif str(forecast_data[i][1]).lower() == "clear":
+                condition = svg("./Icons/clear-day.svg", 83, 83)
             
             
-            temp = text("67", "white", poppins("semi bold"), 18, vertical_widget)
+            
+            temp = text(str(forecast_data[i][2])+"\u00b0", "white", poppins("semi bold"), 18, vertical_widget)
             temp.setAlignment(Qt.AlignCenter)
+            
             
             vdata.addWidget(time)
             
