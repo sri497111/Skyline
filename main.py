@@ -40,11 +40,11 @@ class MainWindow(QMainWindow):
         
         self.setStyleSheet("""
             QMainWindow {
-                border-image: url('./Backgrounds/partly/blurred1.png') 0 0 0 0 stretch stretch;
+                border-image: url('./Backgrounds/clear/blurred.png') 0 0 0 0 stretch stretch;
             }
         """)
         
-        self.element = QPixmap("./Backgrounds/partly/element1.png")
+        self.element = QPixmap("./Backgrounds/clear/element.png")
         
         # ---------------------- UI ---------------------- #
         
@@ -154,14 +154,19 @@ class MainWindow(QMainWindow):
         status_layout.setContentsMargins(20, 0, 35, 0)
         status_layout.setSpacing(15)
         
-        condition_icon = svg("./Icons/partly-cloudy-day.svg", 171, 171)
+        if str(self.current_condition).lower() == "clouds":
+                condition = svg("./Icons/cloudy.svg", 171, 171)
+        elif str(self.current_condition).lower() == "clear":
+            condition = svg("./Icons/clear-day.svg", 171, 171)
+        elif str(self.current_condition).lower() == "rain":
+            condition = svg("./Icons/rain.svg", 171, 171)
         
         temp = text(self.current_temp, "white", poppins("semi bold"), 60, self.status)
         temp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         temp.setContentsMargins(0, 12, 0, 0)
         temp.setMinimumWidth(200)
         
-        status_layout.addWidget(condition_icon)
+        status_layout.addWidget(condition)
         status_layout.addWidget(temp)
         
         status_layout.addStretch(1)
@@ -177,6 +182,7 @@ class MainWindow(QMainWindow):
         location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
         location.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         location.setMaximumHeight(30)
+        location.setStyleSheet(location.styleSheet() + "; margin-right: 2px;")
         
         info_layout.addWidget(location)
         info_layout.addWidget(condition)
