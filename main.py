@@ -132,16 +132,18 @@ class MainWindow(QMainWindow):
             vdata.setSpacing(0)
             
             time = text(str(forecast_data[i][0]), "white", poppins("semi bold"), 18, vertical_widget)
+            print(forecast_data[i])
             time.setAlignment(Qt.AlignCenter)
             
             if str(forecast_data[i][1]).lower() == "clouds":
                 condition = svg("./Icons/cloudy.svg", 83, 83)
             elif str(forecast_data[i][1]).lower() == "clear":
                 condition = svg("./Icons/clear-day.svg", 83, 83)
+            elif str(forecast_data[i][1]).lower() == "rain":
+                condition = svg("./Icons/rain.svg", 83, 83)
             
             
-            
-            temp = text(str(forecast_data[i][2])+"\u00b0", "white", poppins("semi bold"), 18, vertical_widget)
+            temp = text(" "+str(forecast_data[i][2])+"\u00b0", "white", poppins("semi bold"), 18, vertical_widget)
             temp.setAlignment(Qt.AlignCenter)
             
             
