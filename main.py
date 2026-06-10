@@ -27,11 +27,12 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setFixedSize(SIZE[0], SIZE[1])
-        
+        # ---------------------- Window ---------------------- #
         self.windowsize = (SIZE[0], SIZE[1])
         self.refresh_rate = get_refresh_rate()
         self.frequency = int(round(1000/self.refresh_rate, 0))
         
+        # ---------------------- Window ---------------------- #
         self.friction = 0.92
         self.sensitvity = 0.03
         self.yv = 0
@@ -43,54 +44,29 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        
         self.element = QPixmap("./Backgrounds/partly/element1.png")
         
-        self.current_weather = Weather(current_location("coords"))
-        self.current_weather.init_url()
-        self.current_weather_data = self.current_weather.retrieve_current_weather()
-        self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))+"\u00b0"
+        # ---------------------- UI ---------------------- #
         
-        self.current_weather.init_url("hourly")
-        self.weather_forecast_data = self.current_weather.retrieve_hourly_forecast()
-        self.weather_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
+        # Init Weather
+        self.weather_vars((33.448376, -112.074036))
         
+        # Init Viewport and screening (content)
         widget = QWidget()
         self.viewport = QWidget(widget)
-        self.viewport.setGeometry(0, 0, 878, 1000)
+        self.viewport.setGeometry(0, 0, 878, 1050)
         
-        self.hourly_forecast = Card(self.viewport, self.element, 200)
+        # Init Widgets
+        self.status_bar()
+        self.hourly()
+        self.daily()
         
-        self.timeline = QHBoxLayout(self.hourly_forecast)
-        self.populate_hourly_forecast(self.weather_forecast_data)
-        
-        
-        self.daily_forecast = Card(self.viewport, self.element, 500)
-        self.daily_forecast.setContentsMargins(35,0,0,0)
-        
-        status = QWidget(self.viewport)
-        status.setGeometry(35, 75, 500, 60)
-        status_layout = QHBoxLayout(status)
-        status_layout.setContentsMargins(20, 0, 0, 0)
-        status_layout.setSpacing(15)
-        status_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        
-        condition_icon = svg("./Icons/partly-cloudy-day.svg", 171, 171)
-        
-        
-        condition = text(self.current_temp, "white", poppins("semi bold"), 60, status)
-        condition.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        condition.setContentsMargins(0, 12, 0, 0)
-        condition.setMinimumWidth(200)
-        
-        status_layout.addWidget(condition_icon)
-        status_layout.addWidget(condition)
         
         main_layout = QVBoxLayout(self.viewport)
         main_layout.setContentsMargins(25, 75, 25, 25)
         main_layout.setSpacing(30)
         
-        main_layout.addWidget(status)
+        main_layout.addWidget(self.status)
         
         main_layout.addWidget(self.hourly_forecast)
         
@@ -155,6 +131,67 @@ class MainWindow(QMainWindow):
             vdata.setAlignment(Qt.AlignCenter)
             
             self.timeline.addWidget(vertical_widget)
+        
+    def weather_vars(self, location):
+        self.current_weather = Weather(location)
+        self.current_weather.init_url()
+        self.current_weather_data = self.current_weather.retrieve_current_weather()
+        
+        self.current_location_name = str(self.current_weather_data["name"])
+        print(self.current_location_name)
+        
+        self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))+"\u00b0"
+        self.current_condition = str(self.current_weather_data["weather"][0]["main"])
+        
+        self.current_weather.init_url("hourly")
+        self.weather_forecast_data = self.current_weather.retrieve_hourly_forecast()
+        self.weather_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
+
+    def status_bar(self):
+        self.status = QWidget(self.viewport)
+        self.status.setGeometry(35, 75, 828, 120)
+        status_layout = QHBoxLayout(self.status)
+        status_layout.setContentsMargins(20, 0, 35, 0)
+        status_layout.setSpacing(15)
+        
+        condition_icon = svg("./Icons/partly-cloudy-day.svg", 171, 171)
+        
+        temp = text(self.current_temp, "white", poppins("semi bold"), 60, self.status)
+        temp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        temp.setContentsMargins(0, 12, 0, 0)
+        temp.setMinimumWidth(200)
+        
+        status_layout.addWidget(condition_icon)
+        status_layout.addWidget(temp)
+        
+        status_layout.addStretch(1)
+        
+        info_layout = QVBoxLayout()
+        info_layout.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        info_layout.setSpacing(5)
+        
+        condition = text(self.current_condition, "white", poppins("semi bold"), 45, self.status)
+        condition.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        condition.setMaximumHeight(70)
+        
+        location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
+        location.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        location.setMaximumHeight(30)
+        
+        info_layout.addWidget(location)
+        info_layout.addWidget(condition)
+        
+        status_layout.addLayout(info_layout)
+        
+    def hourly(self):
+        self.hourly_forecast = Card(self.viewport, self.element, 200)
+        self.timeline = QHBoxLayout(self.hourly_forecast)
+        self.populate_hourly_forecast(self.weather_forecast_data)
+    
+    def daily(self):
+        self.daily_forecast = Card(self.viewport, self.element, 500)
+        self.daily_forecast.setContentsMargins(35,0,0,0)
+
 def main():   
     app = QApplication(sys.argv)
     
