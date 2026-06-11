@@ -9,7 +9,7 @@ from PyQt5.QtSvg import QSvgWidget
 
 # Modules
 from location import *
-from retrieve import Weather, parse_hourly_forecast
+from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast
 from ui_engine import Card, text, Button, poppins, svg
 
 # System
@@ -22,6 +22,7 @@ import datetime
 
 SIZE = (878, 550)
 
+SPEED_UNIT = "MPH"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -49,7 +50,7 @@ class MainWindow(QMainWindow):
         # ---------------------- UI ---------------------- #
         
         # Init Weather
-        self.weather_vars((33.448376, -112.074036))
+        self.weather_vars((37.32, -122.0322))
         
         # Init Viewport and screening (content)
         widget = QWidget()
@@ -95,9 +96,48 @@ class MainWindow(QMainWindow):
         else:
             if self.v != 0:
                 self.v = 0
+    def populate_daily_forecast(self, forecast_data):
+        self.daily_layout.setAlignment(Qt.AlignLeft)
+        self.daily_layout.setSpacing(0)
         
+        data = self.weather_daily_forecast_data
+        print(data)
+        
+        for i in range(5):
+            horizontal_widget = QWidget()
+            horizontal_widget.setFixedHeight(90)
+            
+            hbox = QHBoxLayout(horizontal_widget)
+            hbox.setContentsMargins(20,0,0,0)
+            hbox.setSpacing(25)
+            
+            cond = data[i][1]
+            if cond.lower() == "clear":
+                cond = svg("./Icons/clear-day.svg", 64, 64)
+            hbox.addWidget(cond)
+            
+            day = data[i][0]
+            day = text(day, "white", poppins("semi bold"), 20, horizontal_widget)
+            day.setFixedWidth(140)
+            
+            min_max = data[i][2], data[i][3]
+            min_max_string = f"{min_max[0]}\u00b0 / {min_max[1]}\u00b0"
+            min_max = text(min_max_string, "white", poppins("semi bold"), 20, horizontal_widget)
+            min_max.setFixedWidth(120)
+            
+            if int(data[i][4]) == 0:
+                end_icon = svg("./Icons/wind.svg", 51, 51)
+                num = text(str(data[i][5])+" "+SPEED_UNIT, "white", poppins("semi bold"), 17, horizontal_widget)
+                num.setFixedWidth(85)
+            hbox.addWidget(day)
+            hbox.addSpacing(80)
+            hbox.addWidget(min_max)
+            hbox.addSpacing(55)
+            hbox.addWidget(end_icon)
+            hbox.addWidget(num)
+            self.daily_layout.addWidget(horizontal_widget)
+            
     def populate_hourly_forecast(self, forecast_data):
-        
         self.timeline.setAlignment(Qt.AlignCenter)
         self.timeline.setSpacing(60)
         for i in range(5):
@@ -110,6 +150,7 @@ class MainWindow(QMainWindow):
             time = text(str(forecast_data[i][0]), "white", poppins("semi bold"), 18, vertical_widget)
             print(forecast_data[i])
             time.setAlignment(Qt.AlignCenter)
+            
             
             if str(forecast_data[i][1]).lower() == "clouds":
                 condition = svg("./Icons/cloudy.svg", 83, 83)
@@ -134,7 +175,6 @@ class MainWindow(QMainWindow):
         
     def weather_vars(self, location):
         self.current_weather = Weather(location)
-        self.current_weather.init_url()
         self.current_weather_data = self.current_weather.retrieve_current_weather()
         
         self.current_location_name = str(self.current_weather_data["name"])
@@ -143,9 +183,11 @@ class MainWindow(QMainWindow):
         self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))+"\u00b0"
         self.current_condition = str(self.current_weather_data["weather"][0]["main"])
         
-        self.current_weather.init_url("hourly")
-        self.weather_forecast_data = self.current_weather.retrieve_hourly_forecast()
-        self.weather_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
+        self.weather_forecast_data = self.current_weather.retrieve_forecast()
+        self.weather_hourly_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
+        
+        self.weather_daily_forecast_data = parse_daily_forecast(self.weather_forecast_data)
+        
 
     def status_bar(self):
         self.status = QWidget(self.viewport)
@@ -182,7 +224,7 @@ class MainWindow(QMainWindow):
         location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
         location.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         location.setMaximumHeight(30)
-        location.setStyleSheet(location.styleSheet() + "; margin-right: 2px;")
+        location.setStyleSheet(location.styleSheet() + "; margin-right: 1px;")
         
         info_layout.addWidget(location)
         info_layout.addWidget(condition)
@@ -192,11 +234,14 @@ class MainWindow(QMainWindow):
     def hourly(self):
         self.hourly_forecast = Card(self.viewport, self.element, 200)
         self.timeline = QHBoxLayout(self.hourly_forecast)
-        self.populate_hourly_forecast(self.weather_forecast_data)
+        self.populate_hourly_forecast(self.weather_hourly_forecast_data)
     
     def daily(self):
         self.daily_forecast = Card(self.viewport, self.element, 500)
         self.daily_forecast.setContentsMargins(35,0,0,0)
+        self.daily_layout = QVBoxLayout(self.daily_forecast)
+        self.populate_daily_forecast(self.weather_daily_forecast_data)
+        
 
 def main():   
     app = QApplication(sys.argv)
