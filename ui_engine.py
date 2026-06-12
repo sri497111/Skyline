@@ -127,5 +127,6 @@ def svg(path, width, height):
     
     icon_label = QLabel()
     icon_label.setFixedSize(width, height)
+    #icon_label.setStyleSheet("")
     icon_label.setPixmap(pixmap)
     return icon_label
