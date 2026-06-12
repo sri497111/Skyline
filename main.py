@@ -9,7 +9,7 @@ from PyQt5.QtSvg import QSvgWidget
 
 # Modules
 from location import *
-from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast
+from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, get_uv
 from ui_engine import Card, text, Button, poppins, svg
 
 # System
@@ -50,17 +50,22 @@ class MainWindow(QMainWindow):
         # ---------------------- UI ---------------------- #
         
         # Init Weather
-        self.weather_vars((37.32, -122.0322))
+        self.location = (37.334606, -122.009102)
+        self.weather_vars(self.location)
+        
         
         # Init Viewport and screening (content)
         widget = QWidget()
         self.viewport = QWidget(widget)
-        self.viewport.setGeometry(0, 0, 878, 1050)
+        self.viewport.setGeometry(0, 0, 878, 1300)
         
         # Init Widgets
         self.status_bar()
         self.hourly()
         self.daily()
+        self.uv_and_feels_like()
+        
+        
         
         
         main_layout = QVBoxLayout(self.viewport)
@@ -72,6 +77,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.hourly_forecast)
         
         main_layout.addWidget(self.daily_forecast)
+        
+        main_layout.addWidget(self.uvf)
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.intertia)
@@ -90,13 +97,26 @@ class MainWindow(QMainWindow):
             self.v *= self.friction
             
             self.viewport.move(0, int(self.yv))
+            
+            self.viewport.update()
             self.hourly_forecast.updatePixmap()
             self.daily_forecast.updatePixmap()
+            self.uvf.updatePixmap()
+            
             
         else:
             if self.v != 0:
                 self.v = 0
+                
+    def daily(self):
+        self.daily_forecast = Card(self.viewport, self.element, 500)
+        self.daily_forecast.setContentsMargins(35,0,0,0)
+        self.daily_layout = QVBoxLayout(self.daily_forecast)
+        self.populate_daily_forecast(self.weather_daily_forecast_data)
     def populate_daily_forecast(self, forecast_data):
+        # Scale Values
+        num_pad = 5
+
         self.daily_layout.setAlignment(Qt.AlignLeft)
         self.daily_layout.setSpacing(0)
         
@@ -114,6 +134,15 @@ class MainWindow(QMainWindow):
             cond = data[i][1]
             if cond.lower() == "clear":
                 cond = svg("./Icons/clear-day.svg", 64, 64)
+                
+            elif cond.lower() == "clouds":
+                cond = svg("./Icons/cloudy.svg", 64, 64)
+            elif cond.lower() == "rain":
+                cond = svg("./Icons/rain.svg", 64, 64)
+            else:
+                print(cond + " error dont have this one!")
+            
+            cond.setStyleSheet("padding-bottom: 8px;")
             hbox.addWidget(cond)
             
             day = data[i][0]
@@ -129,6 +158,12 @@ class MainWindow(QMainWindow):
                 end_icon = svg("./Icons/wind.svg", 51, 51)
                 num = text(str(data[i][5])+" "+SPEED_UNIT, "white", poppins("semi bold"), 17, horizontal_widget)
                 num.setFixedWidth(85)
+            else:
+                end_icon = svg("./Icons/raindrop.svg", 64, 64)
+                num = text(str(data[i][4])+" %", "white", poppins("semi bold"), 17, horizontal_widget)
+                num.setFixedWidth(85)
+                num.setStyleSheet(f"padding-top: {num_pad}px; color: white;")
+                
             hbox.addWidget(day)
             hbox.addSpacing(80)
             hbox.addWidget(min_max)
@@ -136,7 +171,12 @@ class MainWindow(QMainWindow):
             hbox.addWidget(end_icon)
             hbox.addWidget(num)
             self.daily_layout.addWidget(horizontal_widget)
-            
+
+    def hourly(self):
+        self.hourly_forecast = Card(self.viewport, self.element, 200)
+        self.timeline = QHBoxLayout(self.hourly_forecast)
+        self.populate_hourly_forecast(self.weather_hourly_forecast_data)
+        
     def populate_hourly_forecast(self, forecast_data):
         self.timeline.setAlignment(Qt.AlignCenter)
         self.timeline.setSpacing(60)
@@ -158,7 +198,8 @@ class MainWindow(QMainWindow):
                 condition = svg("./Icons/clear-day.svg", 83, 83)
             elif str(forecast_data[i][1]).lower() == "rain":
                 condition = svg("./Icons/rain.svg", 83, 83)
-            
+            else:
+                condition = svg("./Icons/rain.svg", 64, 64)
             
             temp = text(" "+str(forecast_data[i][2])+"\u00b0", "white", poppins("semi bold"), 18, vertical_widget)
             temp.setAlignment(Qt.AlignCenter)
@@ -172,6 +213,24 @@ class MainWindow(QMainWindow):
             vdata.setAlignment(Qt.AlignCenter)
             
             self.timeline.addWidget(vertical_widget)
+    
+    def uv_and_feels_like(self):
+        self.uvf = Card(self.viewport, self.element, 250)
+        self.uvf.setContentsMargins(105,0,55,0)
+        self.uvf_layout = QVBoxLayout(self.uvf)
+        self.populate_uvf(self.uv_index, self.feels_like)
+    
+    def populate_uvf(self, uv, feel):
+        vertical_widget = QWidget()
+        hdata = QHBoxLayout(vertical_widget)
+        hdata.setSpacing(25)
+        hdata.addSpacing(50)
+        hdata.addWidget(text("UV Index: "+str(self.uv_index), "white", poppins("semi bold"),30, vertical_widget))
+        hdata.addSpacing(50)
+        hdata.addWidget(text("Feels Like: ", "white", poppins("semi bold"),30, vertical_widget))
+        self.uvf_layout.addWidget(vertical_widget)
+        
+        
         
     def weather_vars(self, location):
         self.current_weather = Weather(location)
@@ -188,7 +247,9 @@ class MainWindow(QMainWindow):
         
         self.weather_daily_forecast_data = parse_daily_forecast(self.weather_forecast_data)
         
-
+        self.uv_index = get_uv(location)
+        self.feels_like = self.current_weather_data['main']['feels_like']
+        
     def status_bar(self):
         self.status = QWidget(self.viewport)
         self.status.setGeometry(35, 75, 828, 120)
@@ -231,18 +292,6 @@ class MainWindow(QMainWindow):
         
         status_layout.addLayout(info_layout)
         
-    def hourly(self):
-        self.hourly_forecast = Card(self.viewport, self.element, 200)
-        self.timeline = QHBoxLayout(self.hourly_forecast)
-        self.populate_hourly_forecast(self.weather_hourly_forecast_data)
-    
-    def daily(self):
-        self.daily_forecast = Card(self.viewport, self.element, 500)
-        self.daily_forecast.setContentsMargins(35,0,0,0)
-        self.daily_layout = QVBoxLayout(self.daily_forecast)
-        self.populate_daily_forecast(self.weather_daily_forecast_data)
-        
-
 def main():   
     app = QApplication(sys.argv)
     

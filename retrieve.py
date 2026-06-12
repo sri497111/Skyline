@@ -96,3 +96,10 @@ def parse_daily_forecast(data):
         forecast.append([day_of_week, condition, min_temp, max_temp, avg_precip, avg_wind])
         
     return forecast
+
+def get_uv(coords):
+    url = f"https://uvindexapi.com/api/v1/forecast?latitude={coords[0]}&longitude={coords[1]}&timezone=Auto"
+    response = requests.get(url)
+    data = response.json()
+    return int(data['now']['uv_index'])
+
