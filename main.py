@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
             
             day = data[i][0]
             day = text(day, "white", poppins("semi bold"), 20, horizontal_widget)
-            day.setFixedWidth(140)
+            day.setFixedWidth(165)
             
             min_max = data[i][2], data[i][3]
             min_max_string = f"{min_max[0]}\u00b0 / {min_max[1]}\u00b0"
