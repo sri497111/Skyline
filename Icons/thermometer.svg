@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128">
+  <g id="thermometer__thermometer" clip-path="url(#thermometer__clip0_2038_26372)">
+    <g id="thermometer__Thermometer Mercury">
+      <circle id="thermometer__Reservoir" cx="64" cy="83" r="9" fill="#fff"/>
+      <rect id="thermometer__Value" width="6" height="29" x="61" y="50" fill="#fff" rx="3"/>
+    </g>
+    <g id="thermometer__Thermometer Glass">
+      <path id="thermometer__Glass" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M51 83c0-4.5 2.5-8.5 6.5-10.5V39c0-3.9 2.9-7 6.5-7s6.5 3.1 6.5 7v33.5c4 2 6.5 6 6.5 10.5 0 7.2-5.8 13-13 13s-13-5.8-13-13z"/>
+    </g>
+  </g>
+  <defs>
+    <clipPath id="thermometer__clip0_2038_26372">
+      <rect width="128" height="128" fill="#fff"/>
+    </clipPath>
+  </defs>
+</svg>

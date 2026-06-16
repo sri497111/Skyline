@@ -9,7 +9,7 @@ from PyQt5.QtSvg import QSvgWidget
 
 # Modules
 from location import *
-from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, get_uv
+from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, get_uv
 from ui_engine import Card, text, Button, poppins, svg
 
 # System
@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         # ---------------------- UI ---------------------- #
         
         # Init Weather
-        self.location = (37.334606, -122.009102)
+        self.location = (29.4243, -98.4911)
         self.weather_vars(self.location)
         
         
@@ -216,21 +216,131 @@ class MainWindow(QMainWindow):
     
     def uv_and_feels_like(self):
         self.uvf = Card(self.viewport, self.element, 250)
-        self.uvf.setContentsMargins(105,0,55,0)
+        self.uvf.setContentsMargins(105,20,55,0)
         self.uvf_layout = QVBoxLayout(self.uvf)
-        self.populate_uvf(self.uv_index, self.feels_like)
+        self.uvf_layout.setSpacing(0)
+        self.populate_uvf()
     
-    def populate_uvf(self, uv, feel):
-        vertical_widget = QWidget()
-        hdata = QHBoxLayout(vertical_widget)
-        hdata.setSpacing(25)
-        hdata.addSpacing(50)
-        hdata.addWidget(text("UV Index: "+str(self.uv_index), "white", poppins("semi bold"),30, vertical_widget))
-        hdata.addSpacing(50)
-        hdata.addWidget(text("Feels Like: ", "white", poppins("semi bold"),30, vertical_widget))
-        self.uvf_layout.addWidget(vertical_widget)
+    def populate_uvf(self):
+        column_widget = QWidget()
+        column_layout = QHBoxLayout(column_widget)
+        column_layout.setContentsMargins(0,0,0,0)
+        column_layout.setSpacing(0)
+        
+        # UV Column
+        uv_widget = QWidget()
+        uv_layout = QVBoxLayout(uv_widget)
+        uv_layout.setContentsMargins(0,0,0,0)
+        uv_layout.setSpacing(4)
+        
+        # Icon & Title (UV)
+        
+        iwt = QWidget()
+        iwt_layout = QHBoxLayout(iwt)
+        iwt_layout.setContentsMargins(0,0,0,0)
+        iwt_layout.setSpacing(8)
+        iwt_layout.addWidget(svg("./Icons/clear-day.svg", 30, 30))
+        uv_index_title = text("UV Index", "white", poppins("semi bold"), 15, iwt)
+        uv_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px;")
+        iwt_layout.addWidget(uv_index_title)
+        
+        # ====================
         
         
+        uv_layout.addWidget(iwt, alignment=Qt.AlignCenter)
+        uv_layout.addStretch(1)
+        uv_layout.addWidget(text(str(self.uv_index), "white", poppins("semi bold"), 40, uv_widget), alignment=Qt.AlignCenter)
+        uv_layout.addStretch(1)
+        uv_desc = text("Moderate", "white", poppins("semi bold"), 12, uv_widget)
+        uv_desc.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
+        uv_layout.addWidget(uv_desc, alignment=Qt.AlignCenter)
+        uv_layout.addStretch(1)
+        
+        
+        # Rainfall Column
+        rf_widget = QWidget()
+        rf_layout = QVBoxLayout(rf_widget)
+        rf_layout.setContentsMargins(0,0,0,0)
+        rf_layout.setSpacing(4)
+
+        # Icon & Title (Rainfall)
+                
+        rfw = QWidget()
+        rfw_layout = QHBoxLayout(rfw)
+        rfw_layout.setContentsMargins(0,0,0,0)
+        rfw_layout.setSpacing(8)
+        rfw_layout.addWidget(svg("./Icons/raindrop.svg", 30, 30))
+        rf_index_title = text("Rainfall", "white", poppins("semi bold"), 15, rfw)
+        rf_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px;")
+        rfw_layout.addWidget(rf_index_title)
+
+        # ====================
+
+        rf_layout.addWidget(rfw, alignment=Qt.AlignCenter)
+        rf_layout.addStretch(1)
+        precip_text = text(str(self.precip_inch)+'"', "white", poppins("semi bold"), 40, rf_widget)
+        rf_layout.addWidget(precip_text, alignment=Qt.AlignCenter)
+        rf_layout.addStretch(1)
+        rf_desc = text("In the next 24 HRS", "white", poppins("semi bold"), 12, rf_widget)
+        rf_desc.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
+        rf_layout.addWidget(rf_desc, alignment=Qt.AlignCenter)
+        rf_layout.addStretch(1)
+        
+        
+        # Feels like Column
+        
+        feels_widget = QWidget()
+        feels_layout = QVBoxLayout(feels_widget)
+        feels_layout.setContentsMargins(0,0,0,0)
+        feels_layout.setSpacing(0)
+        
+        # Icon & Title (Feels Like)
+        
+        iwt = QWidget()
+        #iwt.setStyleSheet("padding-right: 15px;")
+        iwt_layout = QHBoxLayout(iwt)
+        iwt_layout.setContentsMargins(0,0,0,0)
+        iwt_layout.setSpacing(0)
+        iwt_layout.addWidget(svg("./Icons/thermometer.svg", 38, 38))
+        feels_index_title = text("Feels like", "white", poppins("semi bold"), 15, iwt)
+        feels_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px; padding-left: 0px; margin-left: 0px;")
+        iwt_layout.addWidget(feels_index_title)
+        
+        # -------------------------
+        
+        feels_layout.addWidget(iwt, alignment=Qt.AlignCenter)
+        
+        feels_layout.addStretch(1)
+        
+        feels_like_temp = text(str(self.feels_like)+"\u00b0", "white", poppins("semi bold"), 40)
+        feels_layout.addWidget(feels_like_temp, alignment=Qt.AlignCenter)
+        
+        feels_layout.addStretch(1)
+        
+        if self.feels_like == int(self.current_temp):
+            comparison = "Similar"
+        elif self.feels_like < int(self.current_temp):
+            comparison = "Cooler"
+        elif self.feels_like > int(self.current_temp):
+            comparison = "Hotter"
+        else:
+            comparison = " "
+            
+        comparison = text(comparison, "white", poppins("semi bold"), 13, feels_widget)
+        comparison.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
+        
+        feels_layout.addWidget(comparison, alignment=Qt.AlignCenter)
+        
+        feels_layout.addStretch(1)
+        
+        column_layout.addWidget(uv_widget, 1)
+        column_layout.addSpacing(10)
+        column_layout.addWidget(rf_widget, 1)
+        column_layout.addSpacing(10)
+        column_layout.addWidget(feels_widget, 1)
+        
+        
+        self.uvf_layout.addWidget(column_widget)
         
     def weather_vars(self, location):
         self.current_weather = Weather(location)
@@ -239,7 +349,7 @@ class MainWindow(QMainWindow):
         self.current_location_name = str(self.current_weather_data["name"])
         print(self.current_location_name)
         
-        self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))+"\u00b0"
+        self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))
         self.current_condition = str(self.current_weather_data["weather"][0]["main"])
         
         self.weather_forecast_data = self.current_weather.retrieve_forecast()
@@ -248,8 +358,10 @@ class MainWindow(QMainWindow):
         self.weather_daily_forecast_data = parse_daily_forecast(self.weather_forecast_data)
         
         self.uv_index = get_uv(location)
-        self.feels_like = self.current_weather_data['main']['feels_like']
+        self.feels_like = round(int(self.current_weather_data['main']['feels_like']))
         
+        self.precip_inch = parse_forecast_for_precip(self.weather_forecast_data)[0]
+        self.precip_cm = parse_forecast_for_precip(self.weather_forecast_data)[1]
     def status_bar(self):
         self.status = QWidget(self.viewport)
         self.status.setGeometry(35, 75, 828, 120)
@@ -264,7 +376,7 @@ class MainWindow(QMainWindow):
         elif str(self.current_condition).lower() == "rain":
             condition = svg("./Icons/rain.svg", 171, 171)
         
-        temp = text(self.current_temp, "white", poppins("semi bold"), 60, self.status)
+        temp = text(self.current_temp+"\u00b0", "white", poppins("semi bold"), 60, self.status)
         temp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         temp.setContentsMargins(0, 12, 0, 0)
         temp.setMinimumWidth(200)

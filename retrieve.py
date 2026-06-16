@@ -31,6 +31,7 @@ class Weather:
         else:
             return "Error 404"
 
+
 def parse_hourly_forecast(data, increment=8):
     forecast = []
     
@@ -50,6 +51,7 @@ def parse_hourly_forecast(data, increment=8):
         temp = round(next3["main"]["temp"])
         
         forecast.append([time, conditions, temp])
+
     return forecast
 
 def parse_daily_forecast(data):
@@ -97,9 +99,18 @@ def parse_daily_forecast(data):
         
     return forecast
 
+def parse_forecast_for_precip(data):
+    total = 0
+    
+    for item in data["list"][:8]:
+        total += item.get("rain", {}).get("3h", 0)
+    
+    total_inches = total / 25.4
+    
+    return round(total_inches, 2), round(total, 1)
+
 def get_uv(coords):
     url = f"https://uvindexapi.com/api/v1/forecast?latitude={coords[0]}&longitude={coords[1]}&timezone=Auto"
     response = requests.get(url)
     data = response.json()
     return int(data['now']['uv_index'])
-
