@@ -1,21 +1,22 @@
 # Qt Imports
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy
+    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QUrl
 from PyQt5.QtGui import QFontDatabase, QPixmap
 from PyQt5 import QtWidgets
-from PyQt5.QtSvg import QSvgWidget
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 # Modules
 from location import *
-from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, get_uv
+from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, get_uv, get_map
 from ui_engine import Card, text, Button, poppins, svg
 
 # System
 from system import *
 import sys
 import datetime
+import os
 
 # --------------------------------------------------------------------------
 
@@ -23,6 +24,7 @@ import datetime
 SIZE = (878, 550)
 
 SPEED_UNIT = "MPH"
+LENGTH_UNIT = "IN"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -57,16 +59,14 @@ class MainWindow(QMainWindow):
         # Init Viewport and screening (content)
         widget = QWidget()
         self.viewport = QWidget(widget)
-        self.viewport.setGeometry(0, 0, 878, 1300)
+        self.viewport.setGeometry(0, 0, 878, 1700)
         
         # Init Widgets
         self.status_bar()
         self.hourly()
         self.daily()
         self.uv_and_feels_like()
-        
-        
-        
+        self.weather_map()
         
         main_layout = QVBoxLayout(self.viewport)
         main_layout.setContentsMargins(25, 75, 25, 25)
@@ -79,6 +79,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.daily_forecast)
         
         main_layout.addWidget(self.uvf)
+        
+        main_layout.addWidget(self.weather_map_card)
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.intertia)
@@ -102,6 +104,7 @@ class MainWindow(QMainWindow):
             self.hourly_forecast.updatePixmap()
             self.daily_forecast.updatePixmap()
             self.uvf.updatePixmap()
+            self.weather_map_card.updatePixmap()
             
             
         else:
@@ -113,6 +116,7 @@ class MainWindow(QMainWindow):
         self.daily_forecast.setContentsMargins(35,0,0,0)
         self.daily_layout = QVBoxLayout(self.daily_forecast)
         self.populate_daily_forecast(self.weather_daily_forecast_data)
+        
     def populate_daily_forecast(self, forecast_data):
         # Scale Values
         num_pad = 5
@@ -128,7 +132,7 @@ class MainWindow(QMainWindow):
             horizontal_widget.setFixedHeight(90)
             
             hbox = QHBoxLayout(horizontal_widget)
-            hbox.setContentsMargins(20,0,0,0)
+            hbox.setContentsMargins(5,0,0,0)
             hbox.setSpacing(25)
             
             cond = data[i][1]
@@ -143,31 +147,35 @@ class MainWindow(QMainWindow):
                 print(cond + " error dont have this one!")
             
             cond.setStyleSheet("padding-bottom: 8px;")
+            cond.setFixedWidth(64)
             hbox.addWidget(cond)
             
             day = data[i][0]
             day = text(day, "white", poppins("semi bold"), 20, horizontal_widget)
-            day.setFixedWidth(165)
+            day.setFixedWidth(200)
+            day.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             
             min_max = data[i][2], data[i][3]
             min_max_string = f"{min_max[0]}\u00b0 / {min_max[1]}\u00b0"
             min_max = text(min_max_string, "white", poppins("semi bold"), 20, horizontal_widget)
             min_max.setFixedWidth(120)
+            min_max.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             
             if int(data[i][4]) == 0:
                 end_icon = svg("./Icons/wind.svg", 51, 51)
                 num = text(str(data[i][5])+" "+SPEED_UNIT, "white", poppins("semi bold"), 17, horizontal_widget)
                 num.setFixedWidth(85)
             else:
-                end_icon = svg("./Icons/raindrop.svg", 64, 64)
+                end_icon = svg("./Icons/raindrop.svg", 56, 56)
+                #end_icon.setFixedWidth(65)
                 num = text(str(data[i][4])+" %", "white", poppins("semi bold"), 17, horizontal_widget)
-                num.setFixedWidth(85)
+                num.setFixedWidth(78)
                 num.setStyleSheet(f"padding-top: {num_pad}px; color: white;")
                 
             hbox.addWidget(day)
-            hbox.addSpacing(80)
+            hbox.addSpacing(45)
             hbox.addWidget(min_max)
-            hbox.addSpacing(55)
+            hbox.addSpacing(65)
             hbox.addWidget(end_icon)
             hbox.addWidget(num)
             self.daily_layout.addWidget(horizontal_widget)
@@ -214,6 +222,38 @@ class MainWindow(QMainWindow):
             
             self.timeline.addWidget(vertical_widget)
     
+    def weather_map(self):
+        self.weather_map_card = Card(self.viewport, self.element, 350)
+        self.weather_map_card.setContentsMargins(0,0,0,0)
+        self.map_layout = QVBoxLayout(self.weather_map_card)
+        
+        self.web_preview = QLabel(self.weather_map_card)
+        self.web_preview.setAlignment(Qt.AlignCenter)
+        self.map_layout.addWidget(self.web_preview)
+        
+        self.web = QWebEngineView(self.weather_map_card)
+        self.web.resize(750, 350)
+        
+        self.web.loadFinished.connect(self.capture)
+        
+        map_file = os.path.abspath("./map.html")
+        
+        self.web.setUrl(QUrl.fromLocalFile(map_file))
+
+    def capture(self, done):
+        if done:
+            QTimer.singleShot(400, lambda: self.apply_capture())
+
+    def apply_capture(self):
+        captured_pixmap = self.web.grab()
+        captured_pixmap = captured_pixmap.scaled(750, 350, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        
+        self.web.deleteLater()
+        self.web = None
+        
+        self.web_preview.setPixmap(captured_pixmap)
+        
+    
     def uv_and_feels_like(self):
         self.uvf = Card(self.viewport, self.element, 250)
         self.uvf.setContentsMargins(105,20,55,0)
@@ -238,8 +278,8 @@ class MainWindow(QMainWindow):
         iwt = QWidget()
         iwt_layout = QHBoxLayout(iwt)
         iwt_layout.setContentsMargins(0,0,0,0)
-        iwt_layout.setSpacing(8)
-        iwt_layout.addWidget(svg("./Icons/clear-day.svg", 30, 30))
+        iwt_layout.setSpacing(0)
+        iwt_layout.addWidget(svg("./Icons/clear-day.svg", 34, 34))
         uv_index_title = text("UV Index", "white", poppins("semi bold"), 15, iwt)
         uv_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px;")
         iwt_layout.addWidget(uv_index_title)
@@ -268,8 +308,8 @@ class MainWindow(QMainWindow):
         rfw = QWidget()
         rfw_layout = QHBoxLayout(rfw)
         rfw_layout.setContentsMargins(0,0,0,0)
-        rfw_layout.setSpacing(8)
-        rfw_layout.addWidget(svg("./Icons/raindrop.svg", 30, 30))
+        rfw_layout.setSpacing(0)
+        rfw_layout.addWidget(svg("./Icons/raindrop.svg", 38, 38))
         rf_index_title = text("Rainfall", "white", poppins("semi bold"), 15, rfw)
         rf_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px;")
         rfw_layout.addWidget(rf_index_title)
@@ -278,10 +318,23 @@ class MainWindow(QMainWindow):
 
         rf_layout.addWidget(rfw, alignment=Qt.AlignCenter)
         rf_layout.addStretch(1)
-        precip_text = text(str(self.precip_inch)+'"', "white", poppins("semi bold"), 40, rf_widget)
+        
+        if LENGTH_UNIT == "MM":
+            if int(self.precip_cm) != 0:
+                precip_text = text(str(self.precip_cm)+'mm', "white", poppins("semi bold"), 40, rf_widget) 
+            else:
+                precip_text = text(' '+str(0)+'mm', "white", poppins("semi bold"), 40, rf_widget)
+            
+        else:
+            if int(self.precip_inch) == 0:
+                precip_text = text(str(0)+'"', "white", poppins("semi bold"), 40, rf_widget, 30)
+            else:
+                precip_text = text(str(self.precip_inch)+'"', "white", poppins("semi bold"), 40, rf_widget)
+        
+        
         rf_layout.addWidget(precip_text, alignment=Qt.AlignCenter)
         rf_layout.addStretch(1)
-        rf_desc = text("In the next 24 HRS", "white", poppins("semi bold"), 12, rf_widget)
+        rf_desc = text("In the next 24 HRS", "white", poppins("semi bold"), 12, rf_widget, -15)
         rf_desc.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
         rf_layout.addWidget(rf_desc, alignment=Qt.AlignCenter)
         rf_layout.addStretch(1)
@@ -301,7 +354,7 @@ class MainWindow(QMainWindow):
         iwt_layout = QHBoxLayout(iwt)
         iwt_layout.setContentsMargins(0,0,0,0)
         iwt_layout.setSpacing(0)
-        iwt_layout.addWidget(svg("./Icons/thermometer.svg", 38, 38))
+        iwt_layout.addWidget(svg("./Icons/thermometer.svg", 36, 36))
         feels_index_title = text("Feels like", "white", poppins("semi bold"), 15, iwt)
         feels_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px; padding-left: 0px; margin-left: 0px;")
         iwt_layout.addWidget(feels_index_title)
@@ -312,13 +365,13 @@ class MainWindow(QMainWindow):
         
         feels_layout.addStretch(1)
         
-        feels_like_temp = text(str(self.feels_like)+"\u00b0", "white", poppins("semi bold"), 40)
+        feels_like_temp = text(' '+str(self.feels_like)+"\u00b0", "white", poppins("semi bold"), 40, feels_widget, 20)
         feels_layout.addWidget(feels_like_temp, alignment=Qt.AlignCenter)
         
         feels_layout.addStretch(1)
         
         if self.feels_like == int(self.current_temp):
-            comparison = "Similar"
+            comparison = " Similar"
         elif self.feels_like < int(self.current_temp):
             comparison = "Cooler"
         elif self.feels_like > int(self.current_temp):
@@ -326,7 +379,7 @@ class MainWindow(QMainWindow):
         else:
             comparison = " "
             
-        comparison = text(comparison, "white", poppins("semi bold"), 13, feels_widget)
+        comparison = text(comparison, "white", poppins("semi bold"), 13, feels_widget, 0)
         comparison.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
         
         feels_layout.addWidget(comparison, alignment=Qt.AlignCenter)
@@ -362,6 +415,9 @@ class MainWindow(QMainWindow):
         
         self.precip_inch = parse_forecast_for_precip(self.weather_forecast_data)[0]
         self.precip_cm = parse_forecast_for_precip(self.weather_forecast_data)[1]
+        
+        get_map(location)
+        
     def status_bar(self):
         self.status = QWidget(self.viewport)
         self.status.setGeometry(35, 75, 828, 120)
