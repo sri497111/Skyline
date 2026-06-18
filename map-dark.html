@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Skyline - Weather Map | Powered by OpenWeatherMap</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src="https://unpkg.com/maplibre-gl@^4.0.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@^4.0.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        @font-face {
+            font-family: 'Poppins';
+            src: url('poppins.ttf') format('truetype'),
+                 url('./poppins.ttf') format('truetype');
+        }
+        html, body { margin: 0; padding: 0; background-color: #0f172a; font-family: 'Poppins' !important; }
+        * { font-family: 'Poppins' !important; font-weight: 600 !important; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .maplibre-canvas { animation: fadeIn 0.22s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .maplibregl-ctrl-group {
+            background: rgba(0, 0, 0, 0.4) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+        }
+        .maplibregl-ctrl button span {
+            filter: invert(1);
+        }
+
+        .control-container {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            z-index: 10;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .menu-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            opacity: 1;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .menu-icon span {
+            display: block;
+            width: 18px;
+            height: 2px;
+            background-color: #f8fafc;
+            border-radius: 2px;
+        }
+
+        .panel-content {
+            opacity: 0;
+            visibility: hidden;
+            padding: 22px 18px;
+            width: 210px;
+            box-sizing: border-box;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        .control-container:hover,
+        .control-container.expanded {
+            width: 210px;
+            height: 235px;
+            border-radius: 24px;
+            cursor: default;
+            background: rgba(0, 0, 0, 0.45);
+            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        .control-container:hover .menu-icon,
+        .control-container.expanded .menu-icon {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .control-container:hover .panel-content,
+        .control-container.expanded .panel-content {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .panel-content h3 {
+            margin: 0 0 16px 0;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255, 255, 255, 0.4);
+            text-align: center;
+        }
+
+        .layer-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 12px 0;
+            cursor: pointer;
+            font-size: 14px;
+            user-select: none;
+            color: #f8fafc;
+            transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 4px 2px;
+            position: relative;
+        }
+
+        .layer-option:hover {
+            color: #38bdf8;
+        }
+
+        .layer-option input {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            margin: 0;
+            z-index: 5;
+        }
+
+        /* Active Tick Indicator Mark */
+        .checkmark-tick {
+            width: 12px;
+            height: 12px;
+            position: relative;
+            display: block;
+            opacity: 0;
+            transform: scale(0.6) rotate(15deg);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1;
+        }
+
+        .checkmark-tick::after {
+            content: "";
+            position: absolute;
+            left: 3px;
+            top: 0px;
+            width: 4px;
+            height: 9px;
+            border: solid #38bdf8;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .layer-option input:checked ~ .checkmark-tick {
+            opacity: 1;
+            transform: scale(1.1) rotate(0deg);
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="control-container" id="controlContainer">
+    <div class="menu-icon">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+
+    <div class="panel-content">
+        <h3>Layers</h3>
+        <label class="layer-option">
+            <span>Precipitation</span>
+            <input type="radio" name="weather-layer" value="precipitation" checked>
+            <span class="checkmark-tick"></span>
+        </label>
+        <label class="layer-option">
+            <span>Clouds</span>
+            <input type="radio" name="weather-layer" value="clouds">
+            <span class="checkmark-tick"></span>
+        </label>
+        <label class="layer-option">
+            <span>Temperature</span>
+            <input type="radio" name="weather-layer" value="temp">
+            <span class="checkmark-tick"></span>
+        </label>
+        <label class="layer-option">
+            <span>Wind Speed</span>
+            <input type="radio" name="weather-layer" value="wind">
+            <span class="checkmark-tick"></span>
+        </label>
+    </div>
+</div>
+
+<script>
+    const OWM_API_KEY = '7dd61afc5903f81a45839eb528dcbabd';
+
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        center: [-98.4936, 29.4241],
+        zoom: 4,
+        fadeDuration: 80,
+        attributionControl: false 
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    const container = document.getElementById('controlContainer');
+    const weatherInputs = Array.from(document.querySelectorAll('input[name="weather-layer"]'));
+    const weatherLayers = ['precipitation', 'clouds', 'temp', 'wind'];
+
+    let hoverTimer = null;
+    let pinnedOpen = false;
+
+    function openMenu() {
+        container.classList.add('expanded');
+    }
+
+    function closeMenu() {
+        if (!pinnedOpen) {
+            container.classList.remove('expanded');
+        }
+    }
+
+    container.addEventListener('click', (e) => {
+        if (!container.classList.contains('expanded')) {
+            e.stopPropagation();
+            pinnedOpen = true;
+            openMenu();
+        }
+    });
+
+    container.addEventListener('mouseenter', () => {
+        clearTimeout(hoverTimer);
+        openMenu();
+    });
+
+    container.addEventListener('mouseleave', () => {
+        clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(closeMenu, 150);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+            pinnedOpen = false;
+            closeMenu();
+        }
+    });
+
+    function setVisibleLayer(selectedLayer) {
+        weatherLayers.forEach(layer => {
+            const layerId = `weather-layer-${layer}`;
+            const visibility = layer === selectedLayer ? 'visible' : 'none';
+            if (map.getLayer(layerId)) {
+                map.setLayoutProperty(layerId, 'visibility', visibility);
+            }
+        });
+
+        weatherInputs.forEach(input => {
+            input.checked = input.value === selectedLayer;
+        });
+    }
+
+    map.on('load', () => {
+        const styleLayers = map.getStyle().layers || [];
+        const firstLabelId = styleLayers.find(layer => layer.type === 'symbol')?.id;
+
+        map.addSource('high-contrast-terrain', {
+            type: 'raster',
+            tiles: ['https://a.topotiles.opentopomap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: 'Topography via OpenTopoMap'
+        });
+
+        map.addLayer({
+            id: 'terrain-texture',
+            type: 'raster',
+            source: 'high-contrast-terrain',
+            paint: {
+                'raster-opacity': 0.12,
+                'raster-fade-duration': 120
+            }
+        }, firstLabelId || undefined);
+
+        weatherLayers.forEach(layer => {
+            map.addSource(`owm-${layer}`, {
+                type: 'raster',
+                tiles: [
+                    `https://tile.openweathermap.org/map/${layer}_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`
+                ],
+                tileSize: 256,
+                attribution: 'Weather via OpenWeatherMap'
+            });
+
+            map.addLayer({
+                id: `weather-layer-${layer}`,
+                type: 'raster',
+                source: `owm-${layer}`,
+                layout: {
+                    visibility: layer === 'precipitation' ? 'visible' : 'none'
+                },
+                paint: {
+                    'raster-opacity': 0.85,
+                    'raster-fade-duration': 120
+                }
+            }, firstLabelId || undefined);
+        });
+
+        weatherInputs.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    setVisibleLayer(e.target.value);
+                }
+            });
+        });
+
+        setVisibleLayer('precipitation');
+    });
+
+    function updateCoordinates(lat, lon, zoomLevel = 12) {
+        map.flyTo({
+            center: [parseFloat(lon), parseFloat(lat)],
+            zoom: zoomLevel,
+            essential: true,
+            speed: 2.3,
+            curve: 1.7
+        });
+    }
+</script>
+</body>
+</html>
