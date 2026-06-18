@@ -3,6 +3,7 @@ from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from system import *
+from html2image import Html2Image
 import cairosvg
 
 
@@ -124,9 +125,8 @@ def svg(path, width, height):
     data = cairosvg.svg2png(url=path, output_width=width, output_height=height)
     pixmap = QPixmap()
     pixmap.loadFromData(data)
-    
     icon_label = QLabel()
     icon_label.setFixedSize(width, height)
-    #icon_label.setStyleSheet("")
     icon_label.setPixmap(pixmap)
     return icon_label
+
