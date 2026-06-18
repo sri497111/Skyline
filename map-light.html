@@ -167,6 +167,24 @@
             opacity: 1;
             transform: scale(1.1) rotate(0deg);
         }
+
+        /* Google Maps-style Location Marker */
+        .location-marker {
+            width: 20px;
+            height: 20px;
+            background-color: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 2px 8 rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .location-marker-inner {
+            width: 10px;
+            height: 10px;
+            background-color: #0076ff;
+            border-radius: 50%;
+        }
     </style>
 </head>
 <body>
@@ -198,7 +216,7 @@
             <span class="checkmark-tick"></span>
         </label>
         <label class="layer-option">
-            <span>Wind Speed</span>
+            <span>Wind</span>
             <input type="radio" name="weather-layer" value="wind">
             <span class="checkmark-tick"></span>
         </label>
@@ -211,8 +229,8 @@
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-        center: [-98.4936, 29.4241],
-        zoom: 4,
+        center: [0, 51.477],
+        zoom: 9,
         fadeDuration: 80,
         attributionControl: false
     });
@@ -225,6 +243,7 @@
 
     let hoverTimer = null;
     let pinnedOpen = false;
+    let locationMarker = null; // Reference to hold our coordinates marker
 
     function openMenu() {
         container.classList.add('expanded');
@@ -328,11 +347,42 @@
         });
 
         setVisibleLayer('precipitation');
+
+        // Automatically create the marker at the map's initial center
+        const startCenter = map.getCenter();
+        const markerEl = document.createElement('div');
+        markerEl.className = 'location-marker';
+        
+        const innerDot = document.createElement('div');
+        innerDot.className = 'location-marker-inner';
+        markerEl.appendChild(innerDot);
+
+        locationMarker = new maplibregl.Marker({ element: markerEl })
+            .setLngLat(startCenter)
+            .addTo(map);
     });
 
     function updateCoordinates(lat, lon, zoomLevel = 12) {
+        const lngNum = parseFloat(lon);
+        const latNum = parseFloat(lat);
+
+        if (!locationMarker) {
+            const markerEl = document.createElement('div');
+            markerEl.className = 'location-marker';
+            
+            const innerDot = document.createElement('div');
+            innerDot.className = 'location-marker-inner';
+            markerEl.appendChild(innerDot);
+
+            locationMarker = new maplibregl.Marker({ element: markerEl })
+                .setLngLat([lngNum, latNum])
+                .addTo(map);
+        } else {
+            locationMarker.setLngLat([lngNum, latNum]);
+        }
+
         map.flyTo({
-            center: [parseFloat(lon), parseFloat(lat)],
+            center: [lngNum, latNum],
             zoom: zoomLevel,
             essential: true,
             speed: 2.3,

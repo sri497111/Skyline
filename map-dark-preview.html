@@ -18,6 +18,30 @@
         .leaflet-control-zoom, .leaflet-control-attribution {
             display: none !important;
         }
+
+        /* Google Maps-style Location Marker Styling */
+        .custom-location-icon {
+            background: none !important;
+            border: none !important;
+        }
+        .location-marker {
+            width: 20px;
+            height: 20px;
+            background-color: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+        .location-marker-inner {
+            width: 10px;
+            height: 10px;
+            background-color: #38bdf8;
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
@@ -27,6 +51,9 @@
     <script>
         // Active OpenWeatherMap API Key extracted from your map-light.html
         const OWM_API_KEY = "7dd61afc5903f81a45839eb528dcbabd"; 
+
+        const initialLat = 51.477;
+        const initialLon = 0;
 
         // 1. Initialize Leaflet map with zero interface elements or operational overhead at Zoom 11
         const map = L.map('map', {
@@ -40,7 +67,7 @@
             zoomAnimation: false,
             fadeAnimation: false,
             markerZoomAnimation: false
-        }).setView([29.4241, -98.4936], 11); 
+        }).setView([initialLat, initialLon], 11); 
 
         // 2. Add CARTO's clean 'Dark Matter' layout tiles as the base layer
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -53,6 +80,17 @@
             opacity: 0.70 // Balanced opacity to let high-contrast dark streets peek through the rain data
         }).addTo(map);
 
+        // Create the Google Maps-style custom HTML icon
+        const locationIcon = L.divIcon({
+            className: 'custom-location-icon',
+            html: '<div class="location-marker"><div class="location-marker-inner"></div></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        // Add the persistent location pointer to the initial coordinates immediately
+        let locationMarker = L.marker([initialLat, initialLon], { icon: locationIcon }).addTo(map);
+
         /**
          * Call from Python: self.web.page().runJavaScript("updatePreview(29.4241, -98.4936)")
          */
@@ -62,6 +100,11 @@
             
             // Re-centers the view instantly with zero drag/slide processing overhead at Zoom 11
             map.setView([cleanLat, cleanLon], 11, { animate: false });
+            
+            // Move the location marker alongside the view adjustment
+            if (locationMarker) {
+                locationMarker.setLatLng([cleanLat, cleanLon]);
+            }
         }
     </script>
 </body>

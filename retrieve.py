@@ -1,7 +1,8 @@
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 import requests
 import random
-from folium_map import overlay_tiles
+
 
 with open("./keys.txt", "r") as keys:
     key = keys.read().splitlines()
@@ -115,8 +116,14 @@ def get_uv(coords):
     data = response.json()
     return int(data['now']['uv_index'])
 
-def get_map(coords):
-    overlay_tiles(coords, key)
+def open_replace(path):
+    file = Path(str(path))
+    content = file.read_text()
+    new_content = content.replace("REPLACE_KEY", "7dd61afc5903f81a45839eb528dcbabd")
+    file.write_text(new_content)
 
-def get_map_preview(coords):
-    overlay_tiles(coords, key, typeofmap="preview")
+def edit_html():
+    open_replace("./map-light.html")
+    open_replace("./map-dark.html")
+    open_replace("./map-light-preview.html")
+    open_replace("./map-dark-preview.html")
