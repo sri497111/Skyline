@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt
 from system import *
 from html2image import Html2Image
 import cairosvg
+import os
 
 
 class Card(QFrame):
@@ -130,3 +131,21 @@ def svg(path, width, height):
     icon_label.setPixmap(pixmap)
     return icon_label
 
+
+def get_map_preview(height, theme="light"):
+    html = Html2Image(custom_flags=["--hide-scrollbar", "--disable-gpu"])
+    
+    if theme == "light":
+        hfile = os.path.abspath("./map-light-preview.html")
+    elif theme == "dark":
+        hfile = os.path.abspath("./map-dark-preview.html")
+    else:
+        hfile = os.path.abspath("./map-light-preview.html")
+    
+    preview = "preview.png"
+    
+    html.screenshot(url=f"file:///{hfile}", save_as=preview, size=(778, int(height)))
+    
+    html_pixmap = QPixmap(preview)
+    
+    return html_pixmap

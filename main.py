@@ -3,14 +3,14 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer, QUrl
-from PyQt5.QtGui import QFontDatabase, QPixmap
+from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion
 from PyQt5 import QtWidgets
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 # Modules
 from location import *
-from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, get_uv, get_map
-from ui_engine import Card, text, Button, poppins, svg
+from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, get_uv, edit_html
+from ui_engine import Card, text, Button, poppins, svg, get_map_preview
 
 # System
 from system import *
@@ -55,6 +55,8 @@ class MainWindow(QMainWindow):
         self.location = (29.4243, -98.4911)
         self.weather_vars(self.location)
         
+        # Init Map
+        #edit_html()
         
         # Init Viewport and screening (content)
         widget = QWidget()
@@ -100,7 +102,6 @@ class MainWindow(QMainWindow):
             
             self.viewport.move(0, int(self.yv))
             
-            self.viewport.update()
             self.hourly_forecast.updatePixmap()
             self.daily_forecast.updatePixmap()
             self.uvf.updatePixmap()
@@ -224,36 +225,28 @@ class MainWindow(QMainWindow):
     
     def weather_map(self):
         self.weather_map_card = Card(self.viewport, self.element, 350)
-        self.weather_map_card.setContentsMargins(0,0,0,0)
+        self.weather_map_card.setCursor(Qt.PointingHandCursor)
+        
         self.map_layout = QVBoxLayout(self.weather_map_card)
+        self.map_layout.setContentsMargins(25,20,25,20)
+        self.map_layout.setAlignment(Qt.AlignCenter)
         
-        self.web_preview = QLabel(self.weather_map_card)
-        self.web_preview.setAlignment(Qt.AlignCenter)
-        self.map_layout.addWidget(self.web_preview)
+        map_label = QLabel()
         
-        self.web = QWebEngineView(self.weather_map_card)
-        self.web.resize(750, 350)
+        pixmap = get_map_preview(305)
+        map_label.setPixmap(pixmap)
+        map_label.setFixedSize(778, 305)
+        map_label.setScaledContents(True)
+        #map_label.enterEvent = lambda e: map_label.setCursor(Qt.PointingHandCursor)
+        #map_label.leaveEvent = lambda e: map_label.setCursor(Qt.ArrowCursor)
         
-        self.web.loadFinished.connect(self.capture)
+        path = QPainterPath()
+        path.addRoundedRect(0,0, 778, 305, 45, 45)
+        map_label.setMask(QRegion(path.toFillPolygon().toPolygon()))
         
-        map_file = os.path.abspath("./map.html")
+        self.map_layout.addWidget(map_label, alignment=Qt.AlignCenter)
         
-        self.web.setUrl(QUrl.fromLocalFile(map_file))
 
-    def capture(self, done):
-        if done:
-            QTimer.singleShot(400, lambda: self.apply_capture())
-
-    def apply_capture(self):
-        captured_pixmap = self.web.grab()
-        captured_pixmap = captured_pixmap.scaled(750, 350, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-        
-        self.web.deleteLater()
-        self.web = None
-        
-        self.web_preview.setPixmap(captured_pixmap)
-        
-    
     def uv_and_feels_like(self):
         self.uvf = Card(self.viewport, self.element, 250)
         self.uvf.setContentsMargins(105,20,55,0)
@@ -416,7 +409,7 @@ class MainWindow(QMainWindow):
         self.precip_inch = parse_forecast_for_precip(self.weather_forecast_data)[0]
         self.precip_cm = parse_forecast_for_precip(self.weather_forecast_data)[1]
         
-        get_map(location)
+        
         
     def status_bar(self):
         self.status = QWidget(self.viewport)
