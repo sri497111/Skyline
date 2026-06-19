@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from system import *
 from html2image import Html2Image
 import cairosvg
@@ -9,6 +9,8 @@ import os
 
 
 class Card(QFrame):
+    clicked = pyqtSignal()
+    
     def __init__(self, parent, pixmap, h=200, window_size=(878, 550)):
         super().__init__(parent)
         self.setFixedHeight(h)
@@ -59,6 +61,7 @@ class Card(QFrame):
         self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
+    
         
 
 class Button(Card):
