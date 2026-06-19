@@ -5,7 +5,9 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer, QUrl
 from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion
 from PyQt5 import QtWidgets
-from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+from PyQt5.QtWidgets import QGraphicsBlurEffect
+from PyQt5 import sip
 
 # Modules
 from location import *
@@ -17,6 +19,7 @@ from system import *
 import sys
 import datetime
 import os
+import gc
 
 # --------------------------------------------------------------------------
 
@@ -50,6 +53,8 @@ class MainWindow(QMainWindow):
         self.element = QPixmap("./Backgrounds/clear/element.png")
         
         # ---------------------- UI ---------------------- #
+        
+        self.popup_active = False
         
         # Init Weather
         self.location = (29.4243, -98.4911)
@@ -89,9 +94,12 @@ class MainWindow(QMainWindow):
         self.timer.start(self.frequency)
         
         
+        
         self.viewport.setLayout(main_layout)
         
         self.setCentralWidget(widget)
+        
+        
         
     def wheelEvent(self, event):
         self.v += event.angleDelta().y() * self.sensitvity
@@ -111,7 +119,21 @@ class MainWindow(QMainWindow):
         else:
             if self.v != 0:
                 self.v = 0
+    def mousePressEvent(self, event):
+        if hasattr(self, "popup_card") and self.popup_card is not None:
+            if not sip.isdeleted(self.popup_card):
+                try:
+                    pos = self.centralWidget().mapFrom(self, event.pos())
+                    
+                    if not self.popup_card.geometry().contains(pos):
+                        self.hide_popup()
+                except RuntimeError:
+                    self.popup_card = None
+            else:
+                self.popup_card = None
                 
+        super().mousePressEvent(event)
+        
     def daily(self):
         self.daily_forecast = Card(self.viewport, self.element, 500)
         self.daily_forecast.setContentsMargins(35,0,0,0)
@@ -226,6 +248,8 @@ class MainWindow(QMainWindow):
     def weather_map(self):
         self.weather_map_card = Card(self.viewport, self.element, 350)
         self.weather_map_card.setCursor(Qt.PointingHandCursor)
+        self.weather_map_card.dark.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        
         
         self.map_layout = QVBoxLayout(self.weather_map_card)
         self.map_layout.setContentsMargins(25,20,25,20)
@@ -237,8 +261,12 @@ class MainWindow(QMainWindow):
         map_label.setPixmap(pixmap)
         map_label.setFixedSize(778, 305)
         map_label.setScaledContents(True)
-        #map_label.enterEvent = lambda e: map_label.setCursor(Qt.PointingHandCursor)
-        #map_label.leaveEvent = lambda e: map_label.setCursor(Qt.ArrowCursor)
+        
+        self.click_event = QPushButton(map_label)
+        self.click_event.setStyleSheet("background-color: transparent; border: none;")
+        self.click_event.clicked.connect(self.popup)
+        
+        self.click_event.setGeometry(0,0,778,305)
         
         path = QPainterPath()
         path.addRoundedRect(0,0, 778, 305, 45, 45)
@@ -246,7 +274,67 @@ class MainWindow(QMainWindow):
         
         self.map_layout.addWidget(map_label, alignment=Qt.AlignCenter)
         
+    def popup(self):
+        # Create Popup block
+        
+        if self.popup_active:
+            return
+        
+        self.timer.stop()
+        self.popup_active = True
+        
+        self.blur = QGraphicsBlurEffect()
+        self.blur.setBlurRadius(25)
+        self.blur.setBlurHints(QGraphicsBlurEffect.QualityHint)
+        self.viewport.setGraphicsEffect(self.blur)
+        
+        self.popup_card = Card(self.centralWidget(), self.element, 500)
+        self.popup_card.setFixedWidth(700)
+        self.popup_card.bg.hide()
+        self.popup_card.dark.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        
+        self.popup_card.move((self.width()-self.popup_card.width())//2, (self.height()-self.popup_card.height())//2)
+        
+        # Creates map ----------------------
+        
+        map_layout = QVBoxLayout(self.popup_card)
+        map_layout.setContentsMargins(0,0,0,0)
+        
+        map_widget = QWebEngineView()
+        settings = map_widget.settings()
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
 
+        self.path = os.path.abspath("./map-light.html")
+        map_widget.setUrl(QUrl.fromLocalFile(self.path))
+        map_layout.addWidget(map_widget)
+        
+        self.popup_card.show()
+        self.popup_card.raise_()
+        
+    def hide_popup(self):
+        self.viewport.setGraphicsEffect(None)
+        if hasattr(self, "popup_card"):
+            if not sip.isdeleted(self.popup_card):
+                layout = self.popup_card.layout()
+                if layout and layout.count() > 0:
+                    map_widget = layout.itemAt(0).widget()
+                    if isinstance(map_widget, QWebEngineView):
+                        #map_widget.page().profile().clearHttpCache()
+                        
+                        map_widget.setUrl(QUrl("about:blank"))
+                        #map_widget.setPage(None)
+                        
+                        #map_widget.deleteLater()
+                        
+                self.popup_card.deleteLater() 
+            self.popup_card = None
+            self.popup_active = False
+            
+            gc.collect()
+            
+        self.timer.start(self.frequency)
+    
     def uv_and_feels_like(self):
         self.uvf = Card(self.viewport, self.element, 250)
         self.uvf.setContentsMargins(105,20,55,0)
@@ -453,7 +541,13 @@ class MainWindow(QMainWindow):
         
         status_layout.addLayout(info_layout)
         
-def main():   
+def main():
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
+        "--js-flags='--expose-gc' "
+        "--aggressive-cache-discard "
+        "--enable-aggressive-domstorage-flushing"
+    )
+    
     app = QApplication(sys.argv)
     
     window = MainWindow()
