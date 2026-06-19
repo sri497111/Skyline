@@ -9,7 +9,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 # Modules
 from location import *
-from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, get_uv, edit_html
+from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
 from ui_engine import Card, text, Button, poppins, svg, get_map_preview
 
 # System
@@ -403,7 +403,7 @@ class MainWindow(QMainWindow):
         
         self.weather_daily_forecast_data = parse_daily_forecast(self.weather_forecast_data)
         
-        self.uv_index = get_uv(location)
+        self.uv_index = self.current_weather.retrieve_uv()
         self.feels_like = round(int(self.current_weather_data['main']['feels_like']))
         
         self.precip_inch = parse_forecast_for_precip(self.weather_forecast_data)[0]

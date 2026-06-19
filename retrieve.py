@@ -14,23 +14,16 @@ class Weather:
         self.key = random.choice(key).strip()
         self.lat= str(self.location[0])
         self.lon = str(self.location[1])
+        self.url = f"https://skyline-backend-xcrg.vercel.app/api/weather?lat={self.lat}&lon={self.lon}"
+        self.response = requests.get(self.url)
+        self.data = self.response.json()
         
     def retrieve_current_weather(self):
-        self.url = f"http://api.openweathermap.org/data/2.5/weather?lat={self.lat}&lon={self.lon}&units=imperial&appid={self.key}"
-        self.response = requests.get(self.url)
-        self.data = self.response.json()
-        if self.data['cod'] != 404:
-            return self.data
-        else:
-            return "Error 404"
+        return self.data['current']
     def retrieve_forecast(self):
-        self.url = f"https://api.openweathermap.org/data/2.5/forecast?lat={self.lat}&lon={self.lon}&units=imperial&appid={self.key}"
-        self.response = requests.get(self.url)
-        self.data = self.response.json()
-        if self.data['cod'] != 404:
-            return self.data
-        else:
-            return "Error 404"
+        return self.data['forecast']
+    def retrieve_uv(self):
+        return self.data['uv']['now']['uv_index']
 
 
 def parse_hourly_forecast(data, increment=8):
@@ -110,11 +103,7 @@ def parse_forecast_for_precip(data):
     
     return round(total_inches, 2), round(total, 1)
 
-def get_uv(coords):
-    url = f"https://uvindexapi.com/api/v1/forecast?latitude={coords[0]}&longitude={coords[1]}&timezone=Auto"
-    response = requests.get(url)
-    data = response.json()
-    return int(data['now']['uv_index'])
+
 
 def open_replace(path):
     file = Path(str(path))
