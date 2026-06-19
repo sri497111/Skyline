@@ -3,15 +3,9 @@ from pathlib import Path
 import requests
 import random
 
-
-with open("./keys.txt", "r") as keys:
-    key = keys.read().splitlines()
-
-
 class Weather:
     def __init__(self, location):
         self.location = location
-        self.key = random.choice(key).strip()
         self.lat= str(self.location[0])
         self.lon = str(self.location[1])
         self.url = f"https://skyline-backend-xcrg.vercel.app/api/weather?lat={self.lat}&lon={self.lon}"
