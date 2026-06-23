@@ -79,6 +79,8 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(25, 75, 25, 25)
         main_layout.setSpacing(30)
         
+        #main_layout.addWidget(self.menu)
+
         main_layout.addWidget(self.status)
         
         main_layout.addWidget(self.hourly_forecast)
@@ -506,23 +508,33 @@ class MainWindow(QMainWindow):
         status_layout.setContentsMargins(20, 0, 35, 0)
         status_layout.setSpacing(15)
         
+
+        #self.menu = QWidget(self.viewport)
+        #self.menu.setGeometry(35, 10, 828, 40)
+        #menu_layout = QHBoxLayout(self.menu)
+        #menu_layout.setContentsMargins(20, 0, 35, 0)
+        #menu_layout.setSpacing(15)
+
+        #menu_layout.addStretch(1)
+        #menu_layout.addWidget(svg("./Icons/settings.svg", 30, 30), alignment=Qt.AlignRight | Qt.AlignVCenter)
+
         if str(self.current_condition).lower() == "clouds":
                 condition = svg("./Icons/cloudy.svg", 171, 171)
         elif str(self.current_condition).lower() == "clear":
             condition = svg("./Icons/clear-day.svg", 171, 171)
         elif str(self.current_condition).lower() == "rain":
             condition = svg("./Icons/rain.svg", 171, 171)
+        #condition.setStyleSheet("margin-top: -18px;")
         
         temp = text(self.current_temp+"\u00b0", "white", poppins("semi bold"), 60, self.status)
         temp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        temp.setContentsMargins(0, 12, 0, 0)
+        temp.setContentsMargins(0, 0, 0, 0)
         temp.setMinimumWidth(200)
         
-        status_layout.addWidget(condition)
+        status_layout.addWidget(condition, alignment=Qt.AlignTop)
         status_layout.addWidget(temp)
-        
-        status_layout.addStretch(1)
-        
+
+
         info_layout = QVBoxLayout()
         info_layout.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         info_layout.setSpacing(5)
@@ -535,7 +547,7 @@ class MainWindow(QMainWindow):
         location.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         location.setMaximumHeight(30)
         location.setStyleSheet(location.styleSheet() + "; margin-right: 1px;")
-        
+
         info_layout.addWidget(location)
         info_layout.addWidget(condition)
         
