@@ -2,9 +2,9 @@ from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButt
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtSvg import QSvgWidget
 from system import *
 from html2image import Html2Image
-import cairosvg
 import os
 
 
@@ -116,7 +116,7 @@ def poppins(weight):
 def text(text, color, font, size=20, parent=None, padding=0):
     value = 96/get_dpi()
     label = QLabel(text, parent)
-    label.setFont(QFont(font, size*value))
+    label.setFont(QFont(font, int(size*value)))
     label.setStyleSheet(f"color: {color}; padding-left:{padding}")
     
     if parent:
@@ -126,13 +126,10 @@ def text(text, color, font, size=20, parent=None, padding=0):
     return label
 
 def svg(path, width, height):
-    data = cairosvg.svg2png(url=path, output_width=width, output_height=height)
-    pixmap = QPixmap()
-    pixmap.loadFromData(data)
-    icon_label = QLabel()
-    icon_label.setFixedSize(width, height)
-    icon_label.setPixmap(pixmap)
-    return icon_label
+    svg_widget = QSvgWidget(path)
+    svg_widget.setFixedSize(width, height)
+    return svg_widget
+    
 
 
 def get_map_preview(height, theme="light"):

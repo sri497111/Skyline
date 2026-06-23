@@ -1,0 +1,8 @@
+pyqt5 
+cairosvg
+geocoders
+geopy
+requests
+html2image
+os
+pyqtwebengine
