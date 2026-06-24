@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout
+from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal
@@ -11,7 +11,7 @@ import os
 class Card(QFrame):
     clicked = pyqtSignal()
     
-    def __init__(self, parent, pixmap, h=200, window_size=(878, 550)):
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True):
         super().__init__(parent)
         self.setFixedHeight(h)
         
@@ -19,6 +19,9 @@ class Card(QFrame):
         
         path = QPainterPath()
         
+        self.radius = radius
+        self.raise_dark = raise_dark
+
         self.pixmap = pixmap
         self.window_size = window_size
         
@@ -28,9 +31,9 @@ class Card(QFrame):
         self.bg.setScaledContents(True)
         
         self.dark = QLabel(self)
-        self.dark.setStyleSheet("""
+        self.dark.setStyleSheet(f"""
                 background: rgba(0,0,0,30);
-                border-radius: 55px;
+                border-radius: {radius}px;
         """)
         
         
@@ -41,12 +44,19 @@ class Card(QFrame):
             
         card_global = self.mapToGlobal(self.rect().topLeft())
         window_global = self.window().mapToGlobal(self.window().rect().topLeft())
+
+        relativex = card_global.x() - window_global.x()
         relativey = card_global.y() - window_global.y()
-        crop = self.scaled.copy(0, relativey, w, h)
+        crop = self.scaled.copy(relativex, relativey, w, h)
             
         self.bg.setPixmap(crop)
-        self.dark.raise_()
         
+        if self.raise_dark:
+            self.dark.raise_()
+        else:
+            self.dark.lower()
+            self.bg.lower()
+            
     def resizeEvent(self, event):
         super().resizeEvent(event)
         
@@ -57,7 +67,7 @@ class Card(QFrame):
         self.dark.setGeometry(0, 0, w, h)
 
         self.path = QPainterPath()
-        self.path.addRoundedRect(0, 0, w, h, 55, 55)
+        self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
         self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
@@ -130,7 +140,38 @@ def svg(path, width, height):
     svg_widget.setFixedSize(width, height)
     return svg_widget
     
+def hover_svg(path, width, height):
+    container = QFrame()
 
+    padding = 14
+    circle_size = max(width, height) + padding
+    
+    radius = circle_size // 2
+
+    container.setFixedSize(circle_size, circle_size)
+
+    container.setStyleSheet(f"""
+    
+            QFrame {{
+                background: transparent;
+                border-radius: {radius}px;
+            }}
+            QFrame:hover {{
+                background: rgba(255, 255, 255, 30);
+            }}  
+    
+    """)
+
+    svg_widget = QSvgWidget(path)
+    svg_widget.setFixedSize(width, height)
+    svg_widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+    
+    layout = QVBoxLayout(container)
+    layout.setAlignment(Qt.AlignCenter)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(svg_widget)
+    
+    return container
 
 def get_map_preview(height, theme="light"):
     html = Html2Image(custom_flags=["--hide-scrollbar", "--disable-gpu"])

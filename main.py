@@ -12,7 +12,7 @@ from PyQt5 import sip
 # Modules
 from location import *
 from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
-from ui_engine import Card, text, Button, poppins, svg, get_map_preview
+from ui_engine import Card, text, Button, poppins, svg, hover_svg, get_map_preview
 
 # System
 from system import *
@@ -66,9 +66,10 @@ class MainWindow(QMainWindow):
         # Init Viewport and screening (content)
         widget = QWidget()
         self.viewport = QWidget(widget)
-        self.viewport.setGeometry(0, 0, 878, 1700)
+        self.viewport.setGeometry(0, 0, 878, 1800)
         
         # Init Widgets
+        self.menu_bar()
         self.status_bar()
         self.hourly()
         self.daily()
@@ -77,17 +78,29 @@ class MainWindow(QMainWindow):
         
         main_layout = QVBoxLayout(self.viewport)
         main_layout.setContentsMargins(25, 75, 25, 25)
-        main_layout.setSpacing(30)
+        main_layout.setSpacing(0)
         
-        #main_layout.addWidget(self.menu)
+        
+        
+        main_layout.addWidget(self.menu)
+        
+        main_layout.addSpacing(0)
 
         main_layout.addWidget(self.status)
         
+        main_layout.addSpacing(30)
+
         main_layout.addWidget(self.hourly_forecast)
         
+        main_layout.addSpacing(30)
+
         main_layout.addWidget(self.daily_forecast)
         
+        main_layout.addSpacing(30)
+
         main_layout.addWidget(self.uvf)
+
+        main_layout.addSpacing(30)
         
         main_layout.addWidget(self.weather_map_card)
         
@@ -112,10 +125,12 @@ class MainWindow(QMainWindow):
             
             self.viewport.move(0, int(self.yv))
             
+            self.menu_card.updatePixmap()
             self.hourly_forecast.updatePixmap()
             self.daily_forecast.updatePixmap()
             self.uvf.updatePixmap()
             self.weather_map_card.updatePixmap()
+            
             
             
         else:
@@ -136,6 +151,37 @@ class MainWindow(QMainWindow):
                 
         super().mousePressEvent(event)
         
+    def menu_bar(self):
+        self.menu = QWidget(self.viewport)
+        self.menu_place = QHBoxLayout(self.menu)
+        self.menu_place.setContentsMargins(0, 0, 20, 0)
+        
+        self.menu_card = Card(self.viewport, self.element, 60, radius=30, raise_dark=False)
+        #self.menu_card.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.menu_card.setFixedWidth(225)
+        self.menu_card.setContentsMargins(0, 0, 0, 0)
+
+        self.menu_place.addWidget(self.menu_card, alignment=Qt.AlignRight)
+
+        self.menu_layout = QHBoxLayout(self.menu_card)
+        self.menu_layout.setAlignment(Qt.AlignCenter)
+        self.menu_layout.setContentsMargins(0,0,0,0)
+        self.menu_layout.setSpacing(20)
+        
+        search = hover_svg("./Icons/search.svg", 30, 30)
+        search.setCursor(Qt.PointingHandCursor)
+        self.menu_layout.addWidget(search)
+
+        dashboard = hover_svg("./Icons/places.svg", 30, 30)
+        dashboard.setCursor(Qt.PointingHandCursor)
+        self.menu_layout.addWidget(dashboard)
+        
+        settings = hover_svg("./Icons/settings.svg", 30, 30)
+        settings.setCursor(Qt.PointingHandCursor)
+        self.menu_layout.addWidget(settings)
+
+        
+
     def daily(self):
         self.daily_forecast = Card(self.viewport, self.element, 500)
         self.daily_forecast.setContentsMargins(35,0,0,0)
