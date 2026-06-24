@@ -509,27 +509,19 @@ class MainWindow(QMainWindow):
         status_layout.setSpacing(15)
         
 
-        #self.menu = QWidget(self.viewport)
-        #self.menu.setGeometry(35, 10, 828, 40)
-        #menu_layout = QHBoxLayout(self.menu)
-        #menu_layout.setContentsMargins(20, 0, 35, 0)
-        #menu_layout.setSpacing(15)
-
-        #menu_layout.addStretch(1)
-        #menu_layout.addWidget(svg("./Icons/settings.svg", 30, 30), alignment=Qt.AlignRight | Qt.AlignVCenter)
-
         if str(self.current_condition).lower() == "clouds":
-                condition = svg("./Icons/cloudy.svg", 171, 171)
+                condition = svg("./Icons/cloudy.svg", 190, 190)
         elif str(self.current_condition).lower() == "clear":
-            condition = svg("./Icons/clear-day.svg", 171, 171)
+            condition = svg("./Icons/clear-day.svg", 190, 190)
         elif str(self.current_condition).lower() == "rain":
-            condition = svg("./Icons/rain.svg", 171, 171)
-        #condition.setStyleSheet("margin-top: -18px;")
+            condition = svg("./Icons/rain.svg", 190, 190)
+        #condition.setStyleSheet("margin-top: 22px;")
         
-        temp = text(self.current_temp+"\u00b0", "white", poppins("semi bold"), 60, self.status)
+        temp = text(self.current_temp+"\u00b0", "white", poppins("semi bold"), 65, self.status)
         temp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        temp.setContentsMargins(0, 0, 0, 0)
+        temp.setContentsMargins(0, 25, 0, 0)
         temp.setMinimumWidth(200)
+
         
         status_layout.addWidget(condition, alignment=Qt.AlignTop)
         status_layout.addWidget(temp)
