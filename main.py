@@ -2,17 +2,17 @@
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl
+from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation
 from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion
 from PyQt5 import QtWidgets
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-from PyQt5.QtWidgets import QGraphicsBlurEffect
+from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect
 from PyQt5 import sip
 
 # Modules
 from location import *
-from retrieve import Weather, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
-from ui_engine import Card, text, Button, poppins, svg, hover_svg, get_map_preview
+from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
+from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon
 
 # System
 from system import *
@@ -29,13 +29,15 @@ SIZE = (878, 550)
 SPEED_UNIT = "MPH"
 LENGTH_UNIT = "IN"
 
+refresh = get_refresh_rate()
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setFixedSize(SIZE[0], SIZE[1])
         # ---------------------- Window ---------------------- #
         self.windowsize = (SIZE[0], SIZE[1])
-        self.refresh_rate = get_refresh_rate()
+        self.refresh_rate = refresh
         self.frequency = int(round(1000/self.refresh_rate, 0))
         
         # ---------------------- Window ---------------------- #
@@ -60,15 +62,66 @@ class MainWindow(QMainWindow):
         self.location = (29.4243, -98.4911)
         self.weather_vars(self.location)
         
-        # Init Map
-        #edit_html()
-        
+
+        self.centralwidget = QWidget()
+        self.setCentralWidget(self.centralwidget)
+
         # Init Viewport and screening (content)
-        widget = QWidget()
-        self.viewport = QWidget(widget)
+
+        self.viewport = QWidget(self.centralwidget)
         self.viewport.setGeometry(0, 0, 878, 1800)
+        self.viewport.setStyleSheet("background: transparent; border: none; border-radius: 0px;")
+        
+
+
+        self.ui_blur = QGraphicsBlurEffect()
+        self.ui_blur.setBlurRadius(40)
+        self.ui_blur.setBlurHints(QGraphicsBlurEffect.QualityHint)
+        self.viewport.setGraphicsEffect(self.ui_blur)
+
+        
+
+        self.loading = Loading_Icon("./Icons/loading.svg", 64 )
+        self.loading.setParent(self.centralwidget)
+        self.loading.move((self.width()-self.loading.width())//2, (self.height()-self.loading.height())//2)
+        self.loading.show()
+        self.loading.raise_()
+
+        self.wait = WeatherWait(self.location)
+        self.wait.data.connect(self.loaded)
+        self.wait.error.connect(self.error)
+
+        self.wait.start()
+        
+        
+    def loaded(self, data):    
+        
+
+        self.current_weather = data['current']
+
+        self.current_weather_data = self.current_weather
+        
+        self.current_location_name = str(self.current_weather_data["name"])
+        
+        self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))
+        self.current_condition = str(self.current_weather_data["weather"][0]["main"])
+        
+        self.weather_forecast_data = data['forecast']
+        self.weather_hourly_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
+        
+        self.weather_daily_forecast_data = parse_daily_forecast(self.weather_forecast_data)
+        
+        self.feels_like = round(int(self.current_weather_data['main']['feels_like']))
+        
+        self.precip_inch = parse_forecast_for_precip(self.weather_forecast_data)[0]
+        self.precip_cm = parse_forecast_for_precip(self.weather_forecast_data)[1]
+        
+        self.uv_index = data['uv']
+
+        self.map_pixmap = data['map']
         
         # Init Widgets
+
         self.menu_bar()
         self.status_bar()
         self.hourly()
@@ -79,8 +132,6 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(self.viewport)
         main_layout.setContentsMargins(25, 75, 25, 25)
         main_layout.setSpacing(0)
-        
-        
         
         main_layout.addWidget(self.menu)
         
@@ -103,19 +154,64 @@ class MainWindow(QMainWindow):
         main_layout.addSpacing(30)
         
         main_layout.addWidget(self.weather_map_card)
-        
+
+        self.viewport.setLayout(main_layout)
+
+        QApplication.processEvents()
+
+        self.menu_card.updatePixmap()
+        self.hourly_forecast.updatePixmap()
+        self.daily_forecast.updatePixmap()
+        self.uvf.updatePixmap()
+        self.weather_map_card.updatePixmap()
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.intertia)
         self.timer.start(self.frequency)
+
         
         
+        self.load_fade = QGraphicsOpacityEffect(self.loading)
+        self.load_fade.setOpacity(0.0)
+        self.loading.setGraphicsEffect(self.load_fade)
+
+        self.fade_out = QPropertyAnimation(self.load_fade, b"opacity")
+        self.fade_out.setDuration(200)
+        self.fade_out.setStartValue(1.0)
+        self.fade_out.setEndValue(0.0)
         
-        self.viewport.setLayout(main_layout)
+        self.fade_out.finished.connect(lambda: self.loading.setGraphicsEffect(None))
+        self.fade_out.start()
+
+        if self.loading is not None:
+            if hasattr(self.loading, "timer"):
+                self.loading.timer.stop()
+            self.loading.hide()
+            self.loading.deleteLater()
+            self.loading = None
+
+        self.fade = QGraphicsOpacityEffect(self.viewport)
+        self.fade.setOpacity(0.0)
+        self.viewport.setGraphicsEffect(self.fade)
+
+        self.fade_in = QPropertyAnimation(self.fade, b"opacity")
+        self.fade_in.setDuration(200)
+        self.fade_in.setStartValue(0.0)
+        self.fade_in.setEndValue(1.0)
         
-        self.setCentralWidget(widget)
+        self.fade_in.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
+        self.fade_in.start()
+
         
+
         
-        
+    
+    def error(self):
+        error_label = text("Error retrieving data...", "white", poppins("semi bold"), 20, self.viewport)
+        error_label.setAlignment(Qt.AlignCenter)
+        error_label.setGeometry(0, 0, self.viewport.width(), self.viewport.height())
+        error_label.show()
+
     def wheelEvent(self, event):
         self.v += event.angleDelta().y() * self.sensitvity
     def intertia(self):
@@ -305,7 +401,7 @@ class MainWindow(QMainWindow):
         
         map_label = QLabel()
         
-        pixmap = get_map_preview(305)
+        pixmap = self.map_pixmap.scaled(778, 305, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         map_label.setPixmap(pixmap)
         map_label.setFixedSize(778, 305)
         map_label.setScaledContents(True)
@@ -525,25 +621,7 @@ class MainWindow(QMainWindow):
         self.uvf_layout.addWidget(column_widget)
         
     def weather_vars(self, location):
-        self.current_weather = Weather(location)
-        self.current_weather_data = self.current_weather.retrieve_current_weather()
-        
-        self.current_location_name = str(self.current_weather_data["name"])
-        print(self.current_location_name)
-        
-        self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))
-        self.current_condition = str(self.current_weather_data["weather"][0]["main"])
-        
-        self.weather_forecast_data = self.current_weather.retrieve_forecast()
-        self.weather_hourly_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
-        
-        self.weather_daily_forecast_data = parse_daily_forecast(self.weather_forecast_data)
-        
-        self.uv_index = self.current_weather.retrieve_uv()
-        self.feels_like = round(int(self.current_weather_data['main']['feels_like']))
-        
-        self.precip_inch = parse_forecast_for_precip(self.weather_forecast_data)[0]
-        self.precip_cm = parse_forecast_for_precip(self.weather_forecast_data)[1]
+        pass
         
         
         
@@ -592,6 +670,7 @@ class MainWindow(QMainWindow):
         status_layout.addLayout(info_layout)
         
 def main():
+
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
         "--js-flags='--expose-gc' "
         "--aggressive-cache-discard "

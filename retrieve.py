@@ -1,7 +1,10 @@
+from PyQt5.QtCore import QThread, pyqtSignal
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from ui_engine import get_map_preview
 import requests
 import random
+
 
 class Weather:
     def __init__(self, location):
@@ -18,6 +21,29 @@ class Weather:
         return self.data['forecast']
     def retrieve_uv(self):
         return self.data['uv']['now']['uv_index']
+
+
+class WeatherWait(QThread):
+    data = pyqtSignal(dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, location):
+        super().__init__()
+        self.location = location
+    def run(self):
+        try:
+            weather = Weather(self.location)
+            
+            weather_data = {
+                "current": weather.retrieve_current_weather(),
+                "forecast": weather.retrieve_forecast(),
+                "uv": weather.retrieve_uv(),
+                "map": get_map_preview(305, theme="light")
+            }
+            self.data.emit(weather_data)
+            
+        except Exception as e:
+            self.error.emit(str(e))
 
 
 def parse_hourly_forecast(data, increment=8):

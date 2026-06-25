@@ -1,11 +1,13 @@
 from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget
-from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath
+from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtSvg import QSvgWidget
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QRectF
+from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from system import *
 from html2image import Html2Image
 import os
+
+dpi = get_dpi()
 
 
 class Card(QFrame):
@@ -124,7 +126,7 @@ def poppins(weight):
 
 
 def text(text, color, font, size=20, parent=None, padding=0):
-    value = 96/get_dpi()
+    value = 96/dpi
     label = QLabel(text, parent)
     label.setFont(QFont(font, int(size*value)))
     label.setStyleSheet(f"color: {color}; padding-left:{padding}")
@@ -190,3 +192,33 @@ def get_map_preview(height, theme="light"):
     html_pixmap = QPixmap(preview)
     
     return html_pixmap
+
+
+class Loading_Icon(QSvgWidget):
+    def __init__(self, path, size=64):
+        super().__init__(path)
+        self.angle = 0
+        
+        self.setFixedSize(size, size)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        self.rend = QSvgRenderer(path)
+        
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.rotate)
+        self.timer.start(10)  # 60FPS
+
+    def rotate(self):
+        self.angle = (self.angle + 10) % 360
+        self.update()
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+
+        painter.translate(self.width() / 2, self.height() / 2)
+        painter.rotate(self.angle)
+        painter.translate(-self.width() / 2, -self.height() / 2)
+
+        self.rend.render(painter, QRectF(self.rect()))
