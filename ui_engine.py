@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget, QGraphicsOpacityEffect
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QRectF
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QEasingCurve
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from system import *
 from html2image import Html2Image
@@ -222,3 +222,51 @@ class Loading_Icon(QSvgWidget):
         painter.translate(-self.width() / 2, -self.height() / 2)
 
         self.rend.render(painter, QRectF(self.rect()))
+
+class Popup(QWidget):
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.main = main_window
+        self.setGeometry(0,0, self.main.width(), self.main.height())
+
+        self.blur = Card(parent=self, pixmap=self.main.element, h=self.main.height(), window_size=(main_window.width(), main_window.height()), radius=0, raise_dark=True)
+        self.blur.setGeometry(self.rect())
+
+
+        self.dim = QLabel(self)
+        self.dim.setGeometry(self.rect())
+        self.dim.setStyleSheet("background: rgba(0,0,0,0);")
+
+        self.popup_layout = QVBoxLayout(self)
+        self.popup_layout.setContentsMargins(50,0,50,0)
+        self.popup_layout.setAlignment(Qt.AlignCenter)
+        self.popup_layout.setSpacing(40)
+
+        self.opacity = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity)
+        
+        self.fade = QPropertyAnimation(self.opacity, b'opacity')
+        self.fade.setDuration(200)
+        self.fade.setStartValue(0.0)
+        self.fade.setEndValue(1.0)
+
+        self.show()
+        self.raise_()
+        self.fade.start()
+
+    def mousePressEvent(self, event):
+        if self.childAt(event.pos()) in (None, self.blur, self.dim):
+            self.exit_popup()
+        super().mousePressEvent(event)
+    
+    def wheelEvent(self, event):
+        event.accept()
+    
+    def exit_popup(self):
+        self.fade.stop()
+        self.fade.setStartValue(self.opacity.opacity())
+        self.fade.setEndValue(0.0)
+        self.fade.finished.connect(self.deleteLater)
+        self.fade.start()
+        
+        

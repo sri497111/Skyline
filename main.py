@@ -1,9 +1,9 @@
 # Qt Imports
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy
+    QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy, QLineEdit
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation
-from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion
+from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve
+from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion, QFont
 from PyQt5 import QtWidgets
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect
@@ -12,7 +12,7 @@ from PyQt5 import sip
 # Modules
 from location import *
 from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
-from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon
+from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup
 
 # System
 from system import *
@@ -73,12 +73,10 @@ class MainWindow(QMainWindow):
         self.viewport.setStyleSheet("background: transparent; border: none; border-radius: 0px;")
         
 
-
         self.ui_blur = QGraphicsBlurEffect()
         self.ui_blur.setBlurRadius(40)
         self.ui_blur.setBlurHints(QGraphicsBlurEffect.QualityHint)
         self.viewport.setGraphicsEffect(self.ui_blur)
-
         
 
         self.loading = Loading_Icon("./Icons/loading.svg", 64 )
@@ -202,10 +200,7 @@ class MainWindow(QMainWindow):
         self.fade_in.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
         self.fade_in.start()
 
-        
 
-        
-    
     def error(self):
         error_label = text("Error retrieving data...", "white", poppins("semi bold"), 20, self.viewport)
         error_label.setAlignment(Qt.AlignCenter)
@@ -226,8 +221,6 @@ class MainWindow(QMainWindow):
             self.daily_forecast.updatePixmap()
             self.uvf.updatePixmap()
             self.weather_map_card.updatePixmap()
-            
-            
             
         else:
             if self.v != 0:
@@ -253,19 +246,19 @@ class MainWindow(QMainWindow):
         self.menu_place.setContentsMargins(0, 0, 20, 0)
         
         self.menu_card = Card(self.viewport, self.element, 60, radius=30, raise_dark=False)
-        #self.menu_card.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.menu_card.setFixedWidth(225)
         self.menu_card.setContentsMargins(0, 0, 0, 0)
 
         self.menu_place.addWidget(self.menu_card, alignment=Qt.AlignRight)
 
         self.menu_layout = QHBoxLayout(self.menu_card)
-        self.menu_layout.setAlignment(Qt.AlignCenter)
-        self.menu_layout.setContentsMargins(0,0,0,0)
-        self.menu_layout.setSpacing(20)
+        self.menu_layout.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.menu_layout.setContentsMargins(20,0,20,0)
+        self.menu_layout.setSpacing(15)
         
         search = hover_svg("./Icons/search.svg", 30, 30)
         search.setCursor(Qt.PointingHandCursor)
+        search.mousePressEvent = self.search
         self.menu_layout.addWidget(search)
 
         dashboard = hover_svg("./Icons/places.svg", 30, 30)
@@ -275,8 +268,46 @@ class MainWindow(QMainWindow):
         settings = hover_svg("./Icons/settings.svg", 30, 30)
         settings.setCursor(Qt.PointingHandCursor)
         self.menu_layout.addWidget(settings)
+    
+    def search(self, event):
+        if not hasattr(self, 'searchpop') or self.searchpop == None:
+            self.searchpop = Popup(self)
+            self.searchpop.destroyed.connect(lambda: setattr(self, 'searchpop', None))
 
-        
+            self.search_bar = Card(self.searchpop, self.element, 70, radius=35, raise_dark=False) 
+            self.search_bar.setFixedWidth(600)
+            self.search_bar.dark.setStyleSheet(f"""
+                background: rgba(0,0,0,50);
+                border-radius: {35}px;
+            """)
+            search_layout = QHBoxLayout(self.search_bar)
+            search_layout.setContentsMargins(40,0,40,0)
+            self.location_search = QLineEdit(self.menu_card)
+            self.location_search.setPlaceholderText("Search an adress, city or place.")
+            self.location_search.setStyleSheet("background: transparent; border: none; color: white; font-size: 18px;")
+            self.location_search.setFont(QFont(poppins("semi bold"), 12))
+            search_layout.addWidget(self.location_search, alignment=Qt.AlignVCenter)
+
+            self.suggestions = Card(self.searchpop, self.element, 300)
+            self.suggestions.dark.setStyleSheet(f"""
+                background: rgba(0,0,0,50);
+                border-radius: {55}px;
+            """)
+
+            suggestions_layout = QVBoxLayout(self.suggestions)
+            suggestions_layout.setContentsMargins(40,0,40,0)
+
+            for i in range(5):
+                suggestions_layout.addWidget(text("Location", "white", poppins("semi bold"), 24, suggestions_layout), alignment=Qt.AlignLeft)
+
+            self.searchpop.popup_layout.addWidget(self.search_bar, alignment=Qt.AlignCenter)
+            self.searchpop.popup_layout.addWidget(self.suggestions)
+
+            QApplication.processEvents()
+
+            self.search_bar.updatePixmap()
+            self.suggestions.updatePixmap()
+
 
     def daily(self):
         self.daily_forecast = Card(self.viewport, self.element, 500)
@@ -399,14 +430,14 @@ class MainWindow(QMainWindow):
         self.map_layout.setContentsMargins(25,20,25,20)
         self.map_layout.setAlignment(Qt.AlignCenter)
         
-        map_label = QLabel()
+        self.map_label = QLabel()
         
         pixmap = self.map_pixmap.scaled(778, 305, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        map_label.setPixmap(pixmap)
-        map_label.setFixedSize(778, 305)
-        map_label.setScaledContents(True)
+        self.map_label.setPixmap(pixmap)
+        self.map_label.setFixedSize(778, 305)
+        self.map_label.setScaledContents(True)
         
-        self.click_event = QPushButton(map_label)
+        self.click_event = QPushButton(self.map_label)
         self.click_event.setStyleSheet("background-color: transparent; border: none;")
         self.click_event.clicked.connect(self.popup)
         
@@ -414,9 +445,9 @@ class MainWindow(QMainWindow):
         
         path = QPainterPath()
         path.addRoundedRect(0,0, 778, 305, 45, 45)
-        map_label.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        self.map_label.setMask(QRegion(path.toFillPolygon().toPolygon()))
         
-        self.map_layout.addWidget(map_label, alignment=Qt.AlignCenter)
+        self.map_layout.addWidget(self.map_label, alignment=Qt.AlignCenter)
         
     def popup(self):
         # Create Popup block
@@ -432,6 +463,8 @@ class MainWindow(QMainWindow):
         self.blur.setBlurHints(QGraphicsBlurEffect.QualityHint)
         self.viewport.setGraphicsEffect(self.blur)
         
+        
+
         self.popup_card = Card(self.centralWidget(), self.element, 500)
         self.popup_card.setFixedWidth(700)
         self.popup_card.bg.hide()
@@ -439,6 +472,7 @@ class MainWindow(QMainWindow):
         
         self.popup_card.move((self.width()-self.popup_card.width())//2, (self.height()-self.popup_card.height())//2)
         
+
         # Creates map ----------------------
         
         map_layout = QVBoxLayout(self.popup_card)
@@ -453,8 +487,23 @@ class MainWindow(QMainWindow):
         map_widget.setUrl(QUrl.fromLocalFile(self.path))
         map_layout.addWidget(map_widget)
         
+        QApplication.processEvents()
+
+        #self.map_fade_effect = QGraphicsOpacityEffect(self.popup_card)
+        #self.map_label.setGraphicsEffect(self.map_fade_effect)
+
+        #self.map_fade = QPropertyAnimation(self.map_fade_effect, b'opacity')
+        #self.map_fade.setDuration(200)
+        #self.map_fade.setStartValue(0.0)
+        #self.map_fade.setEndValue(1.0)
+
+        #self.map_fade.setEasingCurve(QEasingCurve.InOutQuad)
+
+        #self.map_fade.finished.connect(lambda: self.popup_card.setGraphicsEffect(None))
+
         self.popup_card.show()
         self.popup_card.raise_()
+        #self.map_fade.start()
         
     def hide_popup(self):
         self.viewport.setGraphicsEffect(None)
