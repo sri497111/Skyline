@@ -6,8 +6,9 @@ from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion, QFont
 from PyQt5 import QtWidgets
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect
+from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
 from PyQt5 import sip
+import sqlite3
 
 # Modules
 from location import *
@@ -270,7 +271,17 @@ class MainWindow(QMainWindow):
         self.menu_layout.addWidget(settings)
     
     def search(self, event):
-        if not hasattr(self, 'searchpop') or self.searchpop == None:
+        self.location_db = sqlite3.connect('./locations.db')
+        self.db_cursor = self.location_db.cursor()
+        
+        self.search_timer = QTimer()
+        self.search_timer.setSingleShot(True)
+        self.search_timer.timeout.connect(self.execute_search)
+
+
+        if not hasattr(self, 'searchpop') or self.searchpop == None:\
+
+            
             self.searchpop = Popup(self)
             self.searchpop.destroyed.connect(lambda: setattr(self, 'searchpop', None))
 
@@ -282,32 +293,119 @@ class MainWindow(QMainWindow):
             """)
             search_layout = QHBoxLayout(self.search_bar)
             search_layout.setContentsMargins(40,0,40,0)
-            self.location_search = QLineEdit(self.menu_card)
+
+            self.location_search = QLineEdit(self.search_bar)
             self.location_search.setPlaceholderText("Search an adress, city or place.")
             self.location_search.setStyleSheet("background: transparent; border: none; color: white; font-size: 18px;")
             self.location_search.setFont(QFont(poppins("semi bold"), 12))
+            self.location_search.textChanged.connect(lambda: self.search_timer.start(250))
+
             search_layout.addWidget(self.location_search, alignment=Qt.AlignVCenter)
 
-            self.suggestions = Card(self.searchpop, self.element, 300)
+            self.suggestions = Card(self.searchpop, self.element, 400, raise_dark=False)
             self.suggestions.dark.setStyleSheet(f"""
                 background: rgba(0,0,0,50);
                 border-radius: {55}px;
             """)
 
-            suggestions_layout = QVBoxLayout(self.suggestions)
-            suggestions_layout.setContentsMargins(40,0,40,0)
+            self.suggestions_layout = QVBoxLayout(self.suggestions)
+            self.suggestions_layout.setContentsMargins(50,35,50,35)
 
-            for i in range(5):
-                suggestions_layout.addWidget(text("Location", "white", poppins("semi bold"), 24, suggestions_layout), alignment=Qt.AlignLeft)
 
             self.searchpop.popup_layout.addWidget(self.search_bar, alignment=Qt.AlignCenter)
             self.searchpop.popup_layout.addWidget(self.suggestions)
+
+            self.execute_search()
 
             QApplication.processEvents()
 
             self.search_bar.updatePixmap()
             self.suggestions.updatePixmap()
 
+    def execute_search(self):
+        while self.suggestions_layout.count():
+            child = self.suggestions_layout.takeAt(0)
+            if child.widget(): 
+                child.widget().deleteLater()
+        search_query = self.location_search.text().strip()
+
+        
+
+        if search_query == "":
+            begin_text = text("Begin Searching.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
+            self.suggestions_layout.addWidget(begin_text, alignment=Qt.AlignCenter)
+            QApplication.processEvents()
+            self.suggestions.updatePixmap()
+
+            return
+
+        
+        query = '''
+            SELECT location, country, coords FROM cities 
+            WHERE location LIKE ?
+            ORDER by CASE WHEN LOWER(location) LIKE ? THEN 1 ELSE 2 END,
+            population DESC 
+            LIMIT 8
+
+        '''
+
+        results = [list(row) for row in self.db_cursor.fetchall()]
+        
+        like = f'%{search_query}%'
+        starts = f'%{search_query.lower()}%'
+
+        self.db_cursor.execute(query, (like, starts))
+        
+        string = ""
+
+
+        if len(results) == 0:
+            no_results = text("No results found.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
+            self.suggestions_layout.addWidget(no_results, alignment=Qt.AlignCenter)
+
+        for i in range(8):
+            if i < len(results):
+                location, country, coords = results[i]
+                string = f'{location}, {country}'
+            else:
+                string = ""
+                coords = ""
+                
+            
+            btn = self.location_hover_button(string)
+            self.suggestions_layout.addWidget(btn)
+        
+        QApplication.processEvents()
+        self.suggestions.updatePixmap()
+
+    def location_hover_button(self, text_l):
+        container = QFrame()
+        container.setCursor(Qt.PointingHandCursor)
+
+        text_l = str(text_l)
+
+        container.setStyleSheet('''
+                                
+            QFrame {
+                background: transparent;
+                border-radius: 12px;
+            }
+                                
+            QFrame:hover {
+                background: rgba(255,255,255,30);                    
+            }
+
+        ''')
+
+        label = text(text_l, "white", poppins("semi bold"), 14, container)
+        label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+        area_layout = QHBoxLayout(container)
+        area_layout.setContentsMargins(15,4,15,4)
+        area_layout.addWidget(label, alignment=Qt.AlignLeft)
+
+        return container
+        
 
     def daily(self):
         self.daily_forecast = Card(self.viewport, self.element, 500)
@@ -489,21 +587,9 @@ class MainWindow(QMainWindow):
         
         QApplication.processEvents()
 
-        #self.map_fade_effect = QGraphicsOpacityEffect(self.popup_card)
-        #self.map_label.setGraphicsEffect(self.map_fade_effect)
-
-        #self.map_fade = QPropertyAnimation(self.map_fade_effect, b'opacity')
-        #self.map_fade.setDuration(200)
-        #self.map_fade.setStartValue(0.0)
-        #self.map_fade.setEndValue(1.0)
-
-        #self.map_fade.setEasingCurve(QEasingCurve.InOutQuad)
-
-        #self.map_fade.finished.connect(lambda: self.popup_card.setGraphicsEffect(None))
 
         self.popup_card.show()
         self.popup_card.raise_()
-        #self.map_fade.start()
         
     def hide_popup(self):
         self.viewport.setGraphicsEffect(None)

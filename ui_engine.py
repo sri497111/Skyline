@@ -125,11 +125,12 @@ def poppins(weight):
 
 
 
-def text(text, color, font, size=20, parent=None, padding=0):
+def text(text, color, font, size=20, parent=None, padding=0, transparency=False):
     value = 96/dpi
     label = QLabel(text, parent)
     label.setFont(QFont(font, int(size*value)))
-    label.setStyleSheet(f"color: {color}; padding-left:{padding}")
+    if transparency: label.setStyleSheet(f"color: rgba(255,255,255,80); padding-left:{padding}")
+    else: label.setStyleSheet(f"color: {color}; padding-left:{padding}")
     
     if parent:
         label.show()
