@@ -13,7 +13,7 @@ dpi = get_dpi()
 class Card(QFrame):
     clicked = pyqtSignal()
     
-    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True):
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None):
         super().__init__(parent)
         self.setFixedHeight(h)
         
@@ -21,11 +21,14 @@ class Card(QFrame):
         
         path = QPainterPath()
         
+
         self.radius = radius
         self.raise_dark = raise_dark
 
         self.pixmap = pixmap
         self.window_size = window_size
+
+        self.window_widget = window_widget
         
         self.scaled = self.pixmap.scaled(878, 550, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         
@@ -45,7 +48,9 @@ class Card(QFrame):
         
             
         card_global = self.mapToGlobal(self.rect().topLeft())
-        window_global = self.window().mapToGlobal(self.window().rect().topLeft())
+
+        target = self.window_widget if self.window_widget else self.window()
+        window_global = target.mapToGlobal(target.rect().topLeft())
 
         relativex = card_global.x() - window_global.x()
         relativey = card_global.y() - window_global.y()
@@ -73,7 +78,6 @@ class Card(QFrame):
         self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
-    
         
 
 class Button(Card):
@@ -230,7 +234,7 @@ class Popup(QWidget):
         self.main = main_window
         self.setGeometry(0,0, self.main.width(), self.main.height())
 
-        self.blur = Card(parent=self, pixmap=self.main.element, h=self.main.height(), window_size=(main_window.width(), main_window.height()), radius=0, raise_dark=True)
+        self.blur = Card(parent=self, pixmap=self.main.element, h=self.main.height(), window_size=(main_window.width(), main_window.height()), radius=0, raise_dark=True, window_widget=main_window)
         self.blur.setGeometry(self.rect())
 
 

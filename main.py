@@ -2,13 +2,14 @@
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy, QLineEdit
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve
+from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop
 from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion, QFont
 from PyQt5 import QtWidgets
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
+from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PyQt5 import sip
-import sqlite3
+import json
 
 # Modules
 from location import *
@@ -57,6 +58,9 @@ class MainWindow(QMainWindow):
         
         # ---------------------- UI ---------------------- #
         
+        self.network = QNetworkAccessManager()
+
+
         self.popup_active = False
         
         # Init Weather
@@ -271,13 +275,11 @@ class MainWindow(QMainWindow):
         self.menu_layout.addWidget(settings)
     
     def search(self, event):
-        self.location_db = sqlite3.connect('./locations.db')
-        self.db_cursor = self.location_db.cursor()
         
+
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self.execute_search)
-
 
         if not hasattr(self, 'searchpop') or self.searchpop == None:\
 
@@ -323,57 +325,89 @@ class MainWindow(QMainWindow):
             self.suggestions.updatePixmap()
 
     def execute_search(self):
+        suggestion_url = f"https://geocoding-api.open-meteo.com/v1/search?name={self.location_search.text()}&count=8&language=en&format=json"
+
         while self.suggestions_layout.count():
             child = self.suggestions_layout.takeAt(0)
             if child.widget(): 
                 child.widget().deleteLater()
         search_query = self.location_search.text().strip()
 
-        
-
         if search_query == "":
             begin_text = text("Begin Searching.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
             self.suggestions_layout.addWidget(begin_text, alignment=Qt.AlignCenter)
+            begin_text.show()
             QApplication.processEvents()
             self.suggestions.updatePixmap()
-
             return
 
+        begin_text = None
+        search_loading = Loading_Icon("./Icons/loading.svg", 48)
+        self.suggestions_layout.addWidget(search_loading, alignment=Qt.AlignCenter)
+        child.widget().hide()
+        QApplication.processEvents()
+        self.suggestions.updatePixmap()
+
+
+        try: 
+            reply = self.network.get(QNetworkRequest(QUrl(suggestion_url)))
+            loop = QEventLoop()
+            reply.finished.connect(loop.quit)
+            loop.exec_()
+
+        except:
+            print("Data retrieval error")
+            search_loading.deleteLater()
+            return
         
-        query = '''
-            SELECT location, country, coords FROM cities 
-            WHERE location LIKE ?
-            ORDER by CASE WHEN LOWER(location) LIKE ? THEN 1 ELSE 2 END,
-            population DESC 
-            LIMIT 8
+        search_loading.hide()
+        search_loading.deleteLater()
 
-        '''
+        data = json.loads(str(reply.readAll(), 'utf-8'))
+        places = data.get('results', [])
 
-        results = [list(row) for row in self.db_cursor.fetchall()]
+        results = []
+
+        for place in places:
+            local_list = []
+            local_list.append(place.get('name'))
+            local_list.append(place.get('admin1'))
+            local_list.append(place.get('country'))
+            local_list.append(place.get('latitude'))
+            local_list.append(place.get('longitude'))
+
+            results.append(local_list)
+
         
-        like = f'%{search_query}%'
-        starts = f'%{search_query.lower()}%'
-
-        self.db_cursor.execute(query, (like, starts))
+        if reply.error() == QNetworkReply.NoError:
+            if len(results) == 0:
+                no_results = text("No results found.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
+                self.suggestions_layout.addWidget(no_results, alignment=Qt.AlignCenter)
         
-        string = ""
 
+            for i in range(8):
+                if i < len(results):
+                    location = results[i][0]
+                    area = results[i][1]
+                    country = results[i][2]
+                    lat = results[i][3]
+                    lon = results[i][4]
+                    string = f'{location}, {area}, {country}'
 
-        if len(results) == 0:
+                    coords = [lat, lon]
+                else:
+                    break
+                    
+                
+                btn = self.location_hover_button(string)
+                self.suggestions_layout.addWidget(btn)
+
+        else:
             no_results = text("No results found.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
             self.suggestions_layout.addWidget(no_results, alignment=Qt.AlignCenter)
 
-        for i in range(8):
-            if i < len(results):
-                location, country, coords = results[i]
-                string = f'{location}, {country}'
-            else:
-                string = ""
-                coords = ""
-                
-            
-            btn = self.location_hover_button(string)
-            self.suggestions_layout.addWidget(btn)
+
+        
         
         QApplication.processEvents()
         self.suggestions.updatePixmap()
@@ -805,6 +839,7 @@ class MainWindow(QMainWindow):
         status_layout.addLayout(info_layout)
         
 def main():
+
 
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
         "--js-flags='--expose-gc' "
