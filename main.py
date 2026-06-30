@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
         
         self.network = QNetworkAccessManager()
 
+        self.first_load = True
 
         self.popup_active = False
         
@@ -176,22 +177,30 @@ class MainWindow(QMainWindow):
         
         self.load_fade = QGraphicsOpacityEffect(self.loading)
         self.load_fade.setOpacity(0.0)
-        self.loading.setGraphicsEffect(self.load_fade)
+        
+        if not self.first_load:
+            self.loading = Loading_Icon("./Icons/loading.svg", 64)
+            self.loading.setParent(self.centralwidget)
+            self.loading.move((self.width()-self.loading.width())//2, (self.height()-self.loading.height())//2)
+            self.loading.show()
+            self.loading.raise_()
+            self.loading.setGraphicsEffect(self.load_fade)
 
         self.fade_out = QPropertyAnimation(self.load_fade, b"opacity")
         self.fade_out.setDuration(200)
         self.fade_out.setStartValue(1.0)
         self.fade_out.setEndValue(0.0)
-        
-        self.fade_out.finished.connect(lambda: self.loading.setGraphicsEffect(None))
-        self.fade_out.start()
 
-        if self.loading is not None:
-            if hasattr(self.loading, "timer"):
-                self.loading.timer.stop()
-            self.loading.hide()
-            self.loading.deleteLater()
-            self.loading = None
+        def cleanup():
+            if hasattr(self, 'loading') and self.loading is not None:
+                if hasattr(self.loading, "timer"):
+                    self.loading.timer.stop()
+                self.loading.hide()
+                self.loading.deleteLater()
+                self.loading = None
+
+        self.fade_out.finished.connect(cleanup)
+        self.fade_out.start()
 
         self.fade = QGraphicsOpacityEffect(self.viewport)
         self.fade.setOpacity(0.0)
@@ -312,7 +321,8 @@ class MainWindow(QMainWindow):
 
             self.suggestions_layout = QVBoxLayout(self.suggestions)
             self.suggestions_layout.setContentsMargins(50,35,50,35)
-
+            self.suggestions_layout.setSpacing(5)
+            
 
             self.searchpop.popup_layout.addWidget(self.search_bar, alignment=Qt.AlignCenter)
             self.searchpop.popup_layout.addWidget(self.suggestions)
@@ -329,11 +339,13 @@ class MainWindow(QMainWindow):
 
         while self.suggestions_layout.count():
             child = self.suggestions_layout.takeAt(0)
-            if child.widget(): 
-                child.widget().deleteLater()
+            wid = child.widget()
+            if wid is not None: 
+                wid.deleteLater()
         search_query = self.location_search.text().strip()
 
         if search_query == "":
+            self.suggestions_layout.setAlignment(Qt.AlignCenter)
             begin_text = text("Begin Searching.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
             self.suggestions_layout.addWidget(begin_text, alignment=Qt.AlignCenter)
             begin_text.show()
@@ -342,6 +354,7 @@ class MainWindow(QMainWindow):
             return
 
         begin_text = None
+        self.suggestions_layout.setAlignment(Qt.AlignCenter)
         search_loading = Loading_Icon("./Icons/loading.svg", 48)
         self.suggestions_layout.addWidget(search_loading, alignment=Qt.AlignCenter)
         child.widget().hide()
@@ -359,6 +372,10 @@ class MainWindow(QMainWindow):
             print("Data retrieval error")
             search_loading.deleteLater()
             return
+        
+        if not sip.isdeleted(search_loading):
+            search_loading.hide()
+            search_loading.deleteLater()
         
         search_loading.hide()
         search_loading.deleteLater()
@@ -393,13 +410,14 @@ class MainWindow(QMainWindow):
                     lat = results[i][3]
                     lon = results[i][4]
                     string = f'{location}, {area}, {country}'
-
                     coords = [lat, lon]
                 else:
                     break
                     
                 
                 btn = self.location_hover_button(string)
+                btn.mousePressEvent = lambda event, c=coords: self.change_location(event, c)
+                self.suggestions_layout.setAlignment(Qt.AlignTop)
                 self.suggestions_layout.addWidget(btn)
 
         else:
@@ -410,7 +428,62 @@ class MainWindow(QMainWindow):
         
         
         QApplication.processEvents()
-        self.suggestions.updatePixmap()
+        QTimer.singleShot(50, self.suggestions.updatePixmap)
+
+    def change_location(self, event, coords):
+        if hasattr(self, 'searchpop') and self.searchpop:
+            self.searchpop.exit_popup()
+
+        hide_viewport = QGraphicsOpacityEffect()
+        hide_viewport.setOpacity(0.0)
+
+        self.viewport.setGraphicsEffect(hide_viewport)
+
+        if self.viewport is not None:
+            while self.viewport.layout().count():
+                item = self.viewport.layout().takeAt(0)
+                widget = item.widget()
+                if widget or widget is not None:
+                    widget.deleteLater()
+                elif item.layout() is not None:
+                    while item.layout().count():
+                        sub = item.layout().takeAt(0)
+                        if sub.widget or sub.widget() is not None:
+                            sub.widget().deleteLater()
+            QWidget().setLayout(self.viewport.layout())
+        
+        self.location = (coords[0], coords[1])
+
+        
+
+        self.loading = Loading_Icon("./Icons/loading.svg", 64 )
+        self.loading.setParent(self.centralwidget)
+        self.loading.move((self.width()-self.loading.width())//2, (self.height()-self.loading.height())//2)
+
+        self.load_fade = QGraphicsOpacityEffect(self.loading)
+        self.load_fade.setOpacity(1.0)
+        self.loading.show()
+        self.loading.raise_()
+        self.loading.setGraphicsEffect(self.load_fade)
+
+        self.new_weather = WeatherWait(self.location)
+        self.new_weather.data.connect(self.loaded)
+        self.new_weather.error.connect(self.error)
+        self.new_weather.start()
+        self.new_weather.finished.connect(self.loading.hide)
+
+        self.first_load = False
+
+        show_viewport = QGraphicsOpacityEffect()
+
+
+        show_viewport.setOpacity(1.0)   
+
+        self.viewport.setGraphicsEffect(show_viewport)
+
+        QApplication.processEvents()
+
+
 
     def location_hover_button(self, text_l):
         container = QFrame()
@@ -839,6 +912,7 @@ class MainWindow(QMainWindow):
         status_layout.addLayout(info_layout)
         
 def main():
+
 
 
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
