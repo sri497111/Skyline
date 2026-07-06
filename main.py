@@ -14,7 +14,7 @@ import json
 # Modules
 from location import *
 from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
-from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup
+from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton
 
 # System
 from system import *
@@ -63,6 +63,8 @@ class MainWindow(QMainWindow):
         self.first_load = True
 
         self.popup_active = False
+
+        self.initial_place = True
         
         # Init Weather
         self.location = (29.4243, -98.4911)
@@ -277,14 +279,16 @@ class MainWindow(QMainWindow):
 
         dashboard = hover_svg("./Icons/places.svg", 30, 30)
         dashboard.setCursor(Qt.PointingHandCursor)
+        dashboard.mousePressEvent = self.dashboard
         self.menu_layout.addWidget(dashboard)
         
         settings = hover_svg("./Icons/settings.svg", 30, 30)
         settings.setCursor(Qt.PointingHandCursor)
+        settings.mousePressEvent = self.settings
         self.menu_layout.addWidget(settings)
+
     
     def search(self, event):
-        
 
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
@@ -335,14 +339,15 @@ class MainWindow(QMainWindow):
             self.suggestions.updatePixmap()
 
     def execute_search(self):
-        suggestion_url = f"https://geocoding-api.open-meteo.com/v1/search?name={self.location_search.text()}&count=8&language=en&format=json"
+        search_query = self.location_search.text().strip()
+        self.current_query = search_query
 
         while self.suggestions_layout.count():
             child = self.suggestions_layout.takeAt(0)
             wid = child.widget()
             if wid is not None: 
                 wid.deleteLater()
-        search_query = self.location_search.text().strip()
+        
 
         if search_query == "":
             self.suggestions_layout.setAlignment(Qt.AlignCenter)
@@ -357,10 +362,11 @@ class MainWindow(QMainWindow):
         self.suggestions_layout.setAlignment(Qt.AlignCenter)
         search_loading = Loading_Icon("./Icons/loading.svg", 48)
         self.suggestions_layout.addWidget(search_loading, alignment=Qt.AlignCenter)
-        child.widget().hide()
+        child.widget().hide() if child.widget() is not None else None
         QApplication.processEvents()
         self.suggestions.updatePixmap()
 
+        suggestion_url = f"https://geocoding-api.open-meteo.com/v1/search?name={self.location_search.text()}&count=8&language=en&format=json"
 
         try: 
             reply = self.network.get(QNetworkRequest(QUrl(suggestion_url)))
@@ -373,17 +379,20 @@ class MainWindow(QMainWindow):
             search_loading.deleteLater()
             return
         
+        if self.current_query != search_query:
+            if not sip.isdeleted(search_loading):
+                search_loading.deleteLater()
+            return
+
         if not sip.isdeleted(search_loading):
             search_loading.hide()
             search_loading.deleteLater()
         
-        search_loading.hide()
-        search_loading.deleteLater()
 
         data = json.loads(str(reply.readAll(), 'utf-8'))
         places = data.get('results', [])
 
-        results = []
+        self.results = []
 
         for place in places:
             local_list = []
@@ -393,22 +402,22 @@ class MainWindow(QMainWindow):
             local_list.append(place.get('latitude'))
             local_list.append(place.get('longitude'))
 
-            results.append(local_list)
+            self.results.append(local_list)
 
         
         if reply.error() == QNetworkReply.NoError:
-            if len(results) == 0:
+            if len(self.results) == 0:
                 no_results = text("No results found.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
                 self.suggestions_layout.addWidget(no_results, alignment=Qt.AlignCenter)
         
 
             for i in range(8):
-                if i < len(results):
-                    location = results[i][0]
-                    area = results[i][1]
-                    country = results[i][2]
-                    lat = results[i][3]
-                    lon = results[i][4]
+                if i < len(self.results):
+                    location = self.results[i][0]
+                    area = self.results[i][1]
+                    country = self.results[i][2]
+                    lat = self.results[i][3]
+                    lon = self.results[i][4]
                     string = f'{location}, {area}, {country}'
                     coords = [lat, lon]
                 else:
@@ -424,9 +433,6 @@ class MainWindow(QMainWindow):
             no_results = text("No results found.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
             self.suggestions_layout.addWidget(no_results, alignment=Qt.AlignCenter)
 
-
-        
-        
         QApplication.processEvents()
         QTimer.singleShot(50, self.suggestions.updatePixmap)
 
@@ -473,9 +479,9 @@ class MainWindow(QMainWindow):
         self.new_weather.finished.connect(self.loading.hide)
 
         self.first_load = False
+        self.initial_place = False
 
         show_viewport = QGraphicsOpacityEffect()
-
 
         show_viewport.setOpacity(1.0)   
 
@@ -483,7 +489,46 @@ class MainWindow(QMainWindow):
 
         QApplication.processEvents()
 
+    def settings(self, event):
+        if not hasattr(self, 'settingspop') or self.settingspop == None:
+            self.settingspop = Popup(self)
+            self.settingspop.destroyed.connect(lambda: setattr(self, 'settingspop', None))
 
+            self.settings_card = Card(self.settingspop, self.element, 400, raise_dark=False)
+            self.settings_card.setFixedWidth(700)
+            self.settings_card.dark.setStyleSheet(f"""
+                background: rgba(0,0,0,50);
+                border-radius: {30}px;
+            """)
+
+            self.settingspop.popup_layout.addWidget(self.settings_card, alignment=Qt.AlignCenter)
+
+            self.settingslayout = QVBoxLayout(self.settings_card)
+            self.settingslayout.setContentsMargins(50, 20, 50, 20)
+
+            temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=0, element=self.element)
+            self.settingslayout.addWidget(temp_radio)
+
+            theme_radio = RadioButton(self.settings_card, "Theme", options=["Light", "Dark"], selected=0, element=self.element)
+            self.settingslayout.addWidget(theme_radio)
+
+            length_radio = RadioButton(self.settings_card, "Length Unit", options=["Metric", "Imperial"], selected=0, element=self.element)
+            self.settingslayout.addWidget(length_radio)
+
+            speed_radio = RadioButton(self.settings_card, "Speed Unit", options=["MPH", "KPH"], selected=0, element=self.element)
+            self.settingslayout.addWidget(speed_radio)
+
+            QApplication.processEvents()
+
+            self.settings_card.show()
+            self.settingspop.show()
+
+            self.settings_card.updatePixmap()
+    
+    def dashboard(self, event):
+        if not hasattr(self, 'dashboardpop') or self.dashboardpop == None:
+            self.dashboardpop = Popup(self)
+            self.dashboardpop.destroyed.connect(lambda: setattr(self, 'dashboardpop', None))
 
     def location_hover_button(self, text_l):
         container = QFrame()
@@ -901,7 +946,17 @@ class MainWindow(QMainWindow):
         condition.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         condition.setMaximumHeight(70)
         
-        location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
+        if self.initial_place:
+            location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
+        elif len(self.results[0][0]) < 20:
+            location = text(str(self.results[0][0]), "white", poppins("semi bold"), 20, self.status)
+        else:
+            if len(str(self.current_location_name)) < 18:
+                location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
+            else:
+                location = text(str(self.current_location_name)[:14]+"...", "white", poppins("semi bold"), 20, self.status)
+            
+
         location.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         location.setMaximumHeight(30)
         location.setStyleSheet(location.styleSheet() + "; margin-right: 1px;")
@@ -912,8 +967,6 @@ class MainWindow(QMainWindow):
         status_layout.addLayout(info_layout)
         
 def main():
-
-
 
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
         "--js-flags='--expose-gc' "

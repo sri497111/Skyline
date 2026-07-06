@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget, QGraphicsOpacityEffect
+from PyQt5.QtWidgets import QHBoxLayout, QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget, QGraphicsOpacityEffect
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QEasingCurve
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QEasingCurve, QPoint, QEvent
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from system import *
 from html2image import Html2Image
@@ -273,5 +273,90 @@ class Popup(QWidget):
         self.fade.setEndValue(0.0)
         self.fade.finished.connect(self.deleteLater)
         self.fade.start()
+
+class RadioButton(QWidget):
+    #-----------------------------------------------------------------------------------------------
+    #| Option define name (passed as text(arg))                            | Option 1 | Option 2   |
+    #-----------------------------------------------------------------------------------------------
+
+    # This class is limited as it is a mini class with a limit of 2 options. 
+    # Selected can be 0 for option 1, or 1 for option 2. Default is None as in none selected.
+    # I animated it so that the indicator will slide
+
+    valueChanged = pyqtSignal(int)
+    def __init__(self, parent, option_name, options, selected=0, element=None):
+        super().__init__(parent)
+        self.selected = selected
+        self.option_text = option_name
+        self.options = options # --> options is a list, formatted as [option_1, option_2]
+        self.positions = [0, 100]
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0,0,0,0)
+
+        # This creates the main pill shape for the buttons
+        self.radio_card = Card(self, element, 70, radius=35, raise_dark=False)
+        self.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
+
+        self.main_layout.addWidget(self.radio_card)
+
+        self.radio_layout = QHBoxLayout(self.radio_card)
+        self.radio_layout.setContentsMargins(30,0,30,0)
+
+        self.option_name = text(self.option_text, "white", poppins("semi bold"), 15, self.radio_card)
+
+        self.radio_layout.addWidget(self.option_name, alignment=Qt.AlignLeft | Qt.AlignVCenter)
+
+        self.container = QFrame(self.radio_card)
+        self.container.setFixedSize(200, 50)
+        self.container.setStyleSheet("background: rgba(255,255,255,30); border-radius: 25px;")
+        self.container.installEventFilter(self)
+
+        self.indicator = QFrame(self.container)
+        self.indicator.setFixedSize(100, 50)
+        self.indicator.setStyleSheet("background: rgba(255,255,255,60); border-radius: 25px;")
+        self.indicator.move(self.positions[selected], 0)
+
+        self.radio_layout.addWidget(self.container, alignment=Qt.AlignRight | Qt.AlignVCenter)
+
+        self.anim = QPropertyAnimation(self.indicator, b"pos")
+        self.anim.setDuration(300)
+        self.anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        self.option1 = QPushButton(self.options[0], self.container)
+        #self.option1.setFixedSize(100, 50)
+
+        self.option2 = QPushButton(self.options[1], self.container)
+        #self.option2.setFixedSize(100, 50)
+
+        for i, btn in enumerate([self.option1, self.option2]):
+            btn.setGeometry(self.positions[i], 0, 100, 50)
+            btn.setFont(QFont(poppins("semi bold"), 10))
+            btn.setStyleSheet("background: transparent; color: white; border: none;")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.installEventFilter(self)
+
+        self.container.installEventFilter(self)
         
-        
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Enter:
+            if obj == self.option1: self.animate(0)
+            elif obj == self.option2: self.animate(1)
+
+        elif event.type() == QEvent.Leave and obj == self.container:
+            self.animate(self.selected)
+
+        elif event.type() == QEvent.MouseButtonPress and obj in (self.option1, self.option2):
+            idx = 0 if obj == self.option1 else 1
+            if self.selected != idx:
+                self.selected = idx
+                self.valueChanged.emit(idx)
+            self.animate(idx)
+
+        return super().eventFilter(obj, event)
+    
+    def animate(self, index):
+        self.anim.stop()
+        self.anim.setEndValue(QPoint(self.positions[index], 0))
+        self.anim.start()
+
