@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget, QGraphicsOpacityEffect
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QEasingCurve, QPoint, QEvent
+from PyQt5.QtCore import QSize, QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve, QPoint, QEvent, QRect
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from system import *
 from html2image import Html2Image
@@ -86,7 +86,6 @@ class Button(Card):
         self.setFixedHeight(h)
         self.setFixedWidth(w)
         
-        
         self.p = parent
         self.pixmap = pixmap
         self.h = h
@@ -169,14 +168,16 @@ def hover_svg(path, width, height):
     
     """)
 
-    svg_widget = QSvgWidget(path)
+
+    svg_widget = QSvgWidget(path, container)
     svg_widget.setFixedSize(width, height)
     svg_widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+    x = (circle_size - width) // 2
+    y = (circle_size - height) // 2
+    svg_widget.move(x, y)
     
-    layout = QVBoxLayout(container)
-    layout.setAlignment(Qt.AlignCenter)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.addWidget(svg_widget)
+    svg_widget._orig_geo = QRect(x, y, width, height)
     
     return container
 
@@ -237,7 +238,6 @@ class Popup(QWidget):
         self.blur = Card(parent=self, pixmap=self.main.element, h=self.main.height(), window_size=(main_window.width(), main_window.height()), radius=0, raise_dark=True, window_widget=main_window)
         self.blur.setGeometry(self.rect())
 
-
         self.dim = QLabel(self)
         self.dim.setGeometry(self.rect())
         self.dim.setStyleSheet("background: rgba(0,0,0,0);")
@@ -248,6 +248,7 @@ class Popup(QWidget):
         self.popup_layout.setSpacing(40)
 
         self.opacity = QGraphicsOpacityEffect(self)
+        self.opacity.setOpacity(0.0)
         self.setGraphicsEffect(self.opacity)
         
         self.fade = QPropertyAnimation(self.opacity, b'opacity')
@@ -257,7 +258,8 @@ class Popup(QWidget):
 
         self.show()
         self.raise_()
-        self.fade.start()
+        
+        QTimer.singleShot(5, self.fade.start)
 
     def mousePressEvent(self, event):
         if self.childAt(event.pos()) in (None, self.blur, self.dim):
@@ -284,12 +286,18 @@ class RadioButton(QWidget):
     # I animated it so that the indicator will slide
 
     valueChanged = pyqtSignal(int)
-    def __init__(self, parent, option_name, options, selected=0, element=None):
+    def __init__(self, parent, option_name, options, selected=0, element=None, functions=None):
         super().__init__(parent)
         self.selected = selected
         self.option_text = option_name
         self.options = options # --> options is a list, formatted as [option_1, option_2]
         self.positions = [0, 100]
+
+        if functions is None:
+            functions = [None, None]
+        
+        self.function1 = functions[0]
+        self.function2 = functions[1]
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0,0,0,0)
@@ -335,6 +343,9 @@ class RadioButton(QWidget):
             btn.setStyleSheet("background: transparent; color: white; border: none;")
             btn.setCursor(Qt.PointingHandCursor)
             btn.installEventFilter(self)
+            
+            if self.function1 and self.function2:
+                btn.clicked.connect(self.function1 if i == 0 else self.function2)
 
         self.container.installEventFilter(self)
         
@@ -360,3 +371,73 @@ class RadioButton(QWidget):
         self.anim.setEndValue(QPoint(self.positions[index], 0))
         self.anim.start()
 
+
+def mouse_press_dim(obj, callback=None):
+    def wrapper(event):
+        fade = obj.graphicsEffect()
+        
+        if not isinstance(fade, QGraphicsOpacityEffect):
+            fade = QGraphicsOpacityEffect(obj)
+            obj.setGraphicsEffect(fade)
+        
+        svg_child = obj.findChild(QSvgWidget)
+        
+        if not svg_child:
+            if callback:
+                callback(event)
+            return
+
+        if not hasattr(obj, "_orig_geo"):
+            obj._orig_geo = svg_child.geometry()
+
+        fade_anim = QPropertyAnimation(fade, b"opacity")
+        fade_anim.setDuration(200)
+        fade_anim.setStartValue(1.0)
+        fade_anim.setEndValue(0.5)
+        fade_anim.setEasingCurve(QEasingCurve.InOutQuad)
+
+        
+
+        obj._press_anim = QParallelAnimationGroup()
+        obj._press_anim.addAnimation(fade_anim)
+        obj._press_anim.start()
+
+        if callback:
+            callback(event)
+    
+    return wrapper
+
+def mouse_release_dim(obj, callback=None):
+    def wrapper(event):
+        fade = obj.graphicsEffect()
+        
+        if not isinstance(fade, QGraphicsOpacityEffect):
+            fade = QGraphicsOpacityEffect(obj)
+            obj.setGraphicsEffect(fade)
+
+        svg_child = obj.findChild(QSvgWidget)
+        
+        if not svg_child:
+            if callback:
+                callback(event)
+            return
+
+        if not hasattr(obj, "_orig_geo"):
+            obj._orig_geo = svg_child.geometry()
+
+        
+        fade_anim = QPropertyAnimation(fade, b"opacity")
+        fade_anim.setDuration(200)
+        fade_anim.setStartValue(fade.opacity())
+        fade_anim.setEndValue(1.0)
+        fade_anim.setEasingCurve(QEasingCurve.OutBack)
+
+        obj._release_anim = QParallelAnimationGroup()
+        obj._release_anim.addAnimation(fade_anim)
+        
+        if callback:
+            obj._release_anim.finished.connect(lambda: QTimer.singleShot(5, lambda: callback(event)))
+
+        obj._release_anim.start()
+    
+    return wrapper

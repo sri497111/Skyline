@@ -3,15 +3,11 @@
         "speed": "MPH",
         "temperature": "F",
         "length": "IN"
-
     },
-
     "theme": {
         "map": "light"
     },
-
     "credit_file": {
         "file_path": "./attribution.txt"
     }
-
 }

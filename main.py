@@ -14,7 +14,8 @@ import json
 # Modules
 from location import *
 from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
-from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton
+from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim
+from settings import load_settings, update_settings
 
 # System
 from system import *
@@ -274,17 +275,20 @@ class MainWindow(QMainWindow):
         
         search = hover_svg("./Icons/search.svg", 30, 30)
         search.setCursor(Qt.PointingHandCursor)
-        search.mousePressEvent = self.search
+        search.mousePressEvent = mouse_press_dim(search)
+        search.mouseReleaseEvent = mouse_release_dim(search, self.search)
         self.menu_layout.addWidget(search)
 
         dashboard = hover_svg("./Icons/places.svg", 30, 30)
         dashboard.setCursor(Qt.PointingHandCursor)
-        dashboard.mousePressEvent = self.dashboard
+        dashboard.mousePressEvent = mouse_press_dim(dashboard)
+        dashboard.mouseReleaseEvent = mouse_release_dim(dashboard, self.dashboard)
         self.menu_layout.addWidget(dashboard)
         
         settings = hover_svg("./Icons/settings.svg", 30, 30)
         settings.setCursor(Qt.PointingHandCursor)
-        settings.mousePressEvent = self.settings
+        settings.mousePressEvent = mouse_press_dim(settings)
+        settings.mouseReleaseEvent = mouse_release_dim(settings, self.settings)
         self.menu_layout.addWidget(settings)
 
     
@@ -350,12 +354,14 @@ class MainWindow(QMainWindow):
         
 
         if search_query == "":
+
             self.suggestions_layout.setAlignment(Qt.AlignCenter)
             begin_text = text("Begin Searching.", "white", poppins("semi bold"), 14, parent=self.suggestions, transparency=True)
             self.suggestions_layout.addWidget(begin_text, alignment=Qt.AlignCenter)
             begin_text.show()
             QApplication.processEvents()
             self.suggestions.updatePixmap()
+            
             return
 
         begin_text = None
@@ -506,16 +512,23 @@ class MainWindow(QMainWindow):
             self.settingslayout = QVBoxLayout(self.settings_card)
             self.settingslayout.setContentsMargins(50, 20, 50, 20)
 
-            temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=0, element=self.element)
+            current = load_settings()
+
+            temp = 0 if current['units']['temperature'] == "C" else 1
+            length = 0 if current['units']['length'] == "MM" else 1
+            speed = 0 if current['units']['speed'] == "MPH" else 1
+            theme = 0 if current['theme']['map'] == "light" else 1
+
+            temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=temp, element=self.element, functions=[lambda: update_settings('units', 'temperature', 'C'), lambda: update_settings('units', 'temperature', 'F')])
             self.settingslayout.addWidget(temp_radio)
 
-            theme_radio = RadioButton(self.settings_card, "Theme", options=["Light", "Dark"], selected=0, element=self.element)
+            theme_radio = RadioButton(self.settings_card, "Theme", options=["Light", "Dark"], selected=theme, element=self.element, functions=[lambda: update_settings('theme', 'map', 'light'), lambda: update_settings('theme', 'map', 'dark')])
             self.settingslayout.addWidget(theme_radio)
 
-            length_radio = RadioButton(self.settings_card, "Length Unit", options=["Metric", "Imperial"], selected=0, element=self.element)
+            length_radio = RadioButton(self.settings_card, "Length Unit", options=["Metric", "Imperial"], selected=length, element=self.element, functions=[lambda: update_settings('units', 'length', 'MM'), lambda: update_settings('units', 'length', 'IN')])
             self.settingslayout.addWidget(length_radio)
 
-            speed_radio = RadioButton(self.settings_card, "Speed Unit", options=["MPH", "KPH"], selected=0, element=self.element)
+            speed_radio = RadioButton(self.settings_card, "Speed Unit", options=["MPH", "KPH"], selected=speed, element=self.element, functions=[lambda: update_settings('units', 'speed', 'MPH'), lambda: update_settings('units', 'speed', 'KPH')])
             self.settingslayout.addWidget(speed_radio)
 
             QApplication.processEvents()
@@ -801,9 +814,20 @@ class MainWindow(QMainWindow):
         
         uv_layout.addWidget(iwt, alignment=Qt.AlignCenter)
         uv_layout.addStretch(1)
-        uv_layout.addWidget(text(str(self.uv_index), "white", poppins("semi bold"), 40, uv_widget), alignment=Qt.AlignCenter)
+        uv_layout.addWidget(text(str(round(int(self.uv_index))), "white", poppins("semi bold"), 40, uv_widget), alignment=Qt.AlignCenter)
         uv_layout.addStretch(1)
-        uv_desc = text("Moderate", "white", poppins("semi bold"), 12, uv_widget)
+
+        if round(int(self.uv_index)) <= 2:
+            uv_desc = text("Low", "white", poppins("semi bold"), 12, uv_widget)
+        elif round(int(self.uv_index)) <= 5 and round(int(self.uv_index)) > 2:
+            uv_desc = text("Moderate", "white", poppins("semi bold"), 12, uv_widget)
+        elif round(int(self.uv_index)) <= 7 and round(int(self.uv_index)) > 5:
+            uv_desc = text("High", "white", poppins("semi bold"), 12, uv_widget)
+        elif round(int(self.uv_index)) <= 10 and round(int(self.uv_index)) > 7:
+            uv_desc = text("Very High", "white", poppins("semi bold"), 12, uv_widget)
+        elif round(int(self.uv_index)) > 10:
+            uv_desc = text("Extreme", "white", poppins("semi bold"), 12, uv_widget)
+        
         uv_desc.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
         uv_layout.addWidget(uv_desc, alignment=Qt.AlignCenter)
         uv_layout.addStretch(1)
@@ -836,7 +860,6 @@ class MainWindow(QMainWindow):
                 precip_text = text(str(self.precip_cm)+'mm', "white", poppins("semi bold"), 40, rf_widget) 
             else:
                 precip_text = text(' '+str(0)+'mm', "white", poppins("semi bold"), 40, rf_widget)
-            
         else:
             if int(self.precip_inch) == 0:
                 precip_text = text(str(0)+'"', "white", poppins("semi bold"), 40, rf_widget, 30)
