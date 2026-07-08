@@ -11,9 +11,19 @@ class Weather:
         self.location = location
         self.lat= str(self.location[0])
         self.lon = str(self.location[1])
+
+        print(f"Coords being sent to Vercel - ({self.lat}, {self.lon})")
+
         self.url = f"https://skyline-backend-xcrg.vercel.app/api/weather?lat={self.lat}&lon={self.lon}"
         self.response = requests.get(self.url)
-        self.data = self.response.json()
+        
+
+        try:
+            self.data = self.response.json()
+        except:
+            status = self.response.status_code
+            snippet = self.response.text[:200].replace('\n', ' ')
+            raise Exception(f"Vercel Error! Status code {status}\n Response snip - {snippet}")
         
     def retrieve_current_weather(self):
         return self.data['current']

@@ -218,7 +218,8 @@ class MainWindow(QMainWindow):
         self.fade_in.start()
 
 
-    def error(self):
+    def error(self, msg):
+        print("Error -                {msg}")
         error_label = text("Error retrieving data...", "white", poppins("semi bold"), 20, self.viewport)
         error_label.setAlignment(Qt.AlignCenter)
         error_label.setGeometry(0, 0, self.viewport.width(), self.viewport.height())

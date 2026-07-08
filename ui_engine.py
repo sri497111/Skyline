@@ -182,8 +182,11 @@ def hover_svg(path, width, height):
     return container
 
 def get_map_preview(height, theme="light"):
-    html = Html2Image(custom_flags=["--hide-scrollbar", "--disable-gpu"])
+    html = Html2Image(custom_flags=["--headless=new", "--hide-scrollbar", "--disable-gpu"], disable_logging=True)
     
+    html.browser.use_new_headless = True
+
+
     if theme == "light":
         hfile = os.path.abspath("./map-light-preview.html")
     elif theme == "dark":
