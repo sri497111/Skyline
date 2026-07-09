@@ -78,6 +78,20 @@ class Card(QFrame):
         self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
+    
+    def alternate(self, index):
+        if index == 0:
+            self.dark.setStyleSheet(f"""
+                    background: rgba(0,0,0,30);
+                    border-radius: {self.radius}px;
+            """)
+
+        else:
+            self.dark.setStyleSheet(f"""
+                    background: rgba(255,255,255,30);
+                    border-radius: {self.radius}px;
+            """)
+
         
 
 class Button(Card):
@@ -278,6 +292,7 @@ class Popup(QWidget):
         self.fade.setEndValue(0.0)
         self.fade.finished.connect(self.deleteLater)
         self.fade.start()
+    
 
 class RadioButton(QWidget):
     #-----------------------------------------------------------------------------------------------

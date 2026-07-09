@@ -15,7 +15,7 @@ import json
 from location import *
 from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim
-from settings import load_settings, update_settings
+from settings import load_settings, update_settings, check_theme
 
 # System
 from system import *
@@ -103,6 +103,10 @@ class MainWindow(QMainWindow):
         
     def loaded(self, data):    
         
+        self.fade = QGraphicsOpacityEffect(self.viewport)
+        self.fade.setOpacity(0.0)
+        self.viewport.setGraphicsEffect(self.fade)
+
 
         self.current_weather = data['current']
 
@@ -172,6 +176,11 @@ class MainWindow(QMainWindow):
         self.uvf.updatePixmap()
         self.weather_map_card.updatePixmap()
 
+        theme_index = check_theme()
+        self.apply_theme(theme_index)
+
+        QApplication.processEvents()
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.intertia)
         self.timer.start(self.frequency)
@@ -204,10 +213,6 @@ class MainWindow(QMainWindow):
 
         self.fade_out.finished.connect(cleanup)
         self.fade_out.start()
-
-        self.fade = QGraphicsOpacityEffect(self.viewport)
-        self.fade.setOpacity(0.0)
-        self.viewport.setGraphicsEffect(self.fade)
 
         self.fade_in = QPropertyAnimation(self.fade, b"opacity")
         self.fade_in.setDuration(200)
@@ -299,18 +304,36 @@ class MainWindow(QMainWindow):
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self.execute_search)
 
-        if not hasattr(self, 'searchpop') or self.searchpop == None:\
-
+        if not hasattr(self, 'searchpop') or self.searchpop == None:
+            
+            theme = check_theme()
             
             self.searchpop = Popup(self)
             self.searchpop.destroyed.connect(lambda: setattr(self, 'searchpop', None))
+            
+            if theme == 0 and self.searchpop:
+                self.searchpop.dim.setStyleSheet("background: rgba(0,0,0,0);")
+            elif theme == 1 and self.searchpop:
+                self.searchpop.dim.setStyleSheet("background: rgba(255,255,255,15);")
+
 
             self.search_bar = Card(self.searchpop, self.element, 70, radius=35, raise_dark=False) 
             self.search_bar.setFixedWidth(600)
-            self.search_bar.dark.setStyleSheet(f"""
-                background: rgba(0,0,0,50);
-                border-radius: {35}px;
-            """)
+
+            
+
+            if theme == 0:
+                self.search_bar.dark.setStyleSheet(f"""
+                    background: rgba(0,0,0,50);
+                    border-radius: {35}px;
+                """)
+                
+            else:
+                self.search_bar.dark.setStyleSheet(f"""
+                    background: rgba(255,255,255,30);
+                    border-radius: {35}px;
+                """)
+
             search_layout = QHBoxLayout(self.search_bar)
             search_layout.setContentsMargins(40,0,40,0)
 
@@ -323,10 +346,25 @@ class MainWindow(QMainWindow):
             search_layout.addWidget(self.location_search, alignment=Qt.AlignVCenter)
 
             self.suggestions = Card(self.searchpop, self.element, 400, raise_dark=False)
+
             self.suggestions.dark.setStyleSheet(f"""
                 background: rgba(0,0,0,50);
                 border-radius: {55}px;
             """)
+
+            if theme == 0:
+                self.suggestions.dark.setStyleSheet(f"""
+                    background: rgba(0,0,0,50);
+                    border-radius: {35}px;
+                """)
+            else:
+                self.suggestions.dark.setStyleSheet(f"""
+                    background: rgba(255,255,255,30);
+                    border-radius: {35}px;
+                """)
+
+            self.search_bar.updatePixmap()
+            self.suggestions.updatePixmap()
 
             self.suggestions_layout = QVBoxLayout(self.suggestions)
             self.suggestions_layout.setContentsMargins(50,35,50,35)
@@ -500,13 +538,22 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'settingspop') or self.settingspop == None:
             self.settingspop = Popup(self)
             self.settingspop.destroyed.connect(lambda: setattr(self, 'settingspop', None))
+            
+            def cleanup():
+                self.settingspop = None 
+                self.settings_card = None
+                self.temp_radio = None
+                self.theme_radio = None
+                self.length_radio = None
+                self.speed_radio = None
+
+            
+            self.settingspop.destroyed.connect(cleanup)
 
             self.settings_card = Card(self.settingspop, self.element, 400, raise_dark=False)
             self.settings_card.setFixedWidth(700)
-            self.settings_card.dark.setStyleSheet(f"""
-                background: rgba(0,0,0,50);
-                border-radius: {30}px;
-            """)
+
+            theme = check_theme()
 
             self.settingspop.popup_layout.addWidget(self.settings_card, alignment=Qt.AlignCenter)
 
@@ -518,19 +565,21 @@ class MainWindow(QMainWindow):
             temp = 0 if current['units']['temperature'] == "C" else 1
             length = 0 if current['units']['length'] == "MM" else 1
             speed = 0 if current['units']['speed'] == "MPH" else 1
-            theme = 0 if current['theme']['map'] == "light" else 1
 
-            temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=temp, element=self.element, functions=[lambda: update_settings('units', 'temperature', 'C'), lambda: update_settings('units', 'temperature', 'F')])
-            self.settingslayout.addWidget(temp_radio)
+            self.temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=temp, element=self.element, functions=[lambda: update_settings('units', 'temperature', 'C'), lambda: update_settings('units', 'temperature', 'F')])
+            self.settingslayout.addWidget(self.temp_radio)
 
-            theme_radio = RadioButton(self.settings_card, "Theme", options=["Light", "Dark"], selected=theme, element=self.element, functions=[lambda: update_settings('theme', 'map', 'light'), lambda: update_settings('theme', 'map', 'dark')])
-            self.settingslayout.addWidget(theme_radio)
+            self.theme_radio = RadioButton(self.settings_card, "Theme", options=["Dark", "Light"], selected=theme, element=self.element, functions=[lambda: update_settings('theme', 'main', 'dark'), lambda: update_settings('theme', 'main', 'light')])
+            self.theme_radio.valueChanged.connect(self.apply_theme)
+            self.settingslayout.addWidget(self.theme_radio)
 
-            length_radio = RadioButton(self.settings_card, "Length Unit", options=["Metric", "Imperial"], selected=length, element=self.element, functions=[lambda: update_settings('units', 'length', 'MM'), lambda: update_settings('units', 'length', 'IN')])
-            self.settingslayout.addWidget(length_radio)
+            self.length_radio = RadioButton(self.settings_card, "Length Unit", options=["Metric", "Imperial"], selected=length, element=self.element, functions=[lambda: update_settings('units', 'length', 'MM'), lambda: update_settings('units', 'length', 'IN')])
+            self.settingslayout.addWidget(self.length_radio)
 
-            speed_radio = RadioButton(self.settings_card, "Speed Unit", options=["MPH", "KPH"], selected=speed, element=self.element, functions=[lambda: update_settings('units', 'speed', 'MPH'), lambda: update_settings('units', 'speed', 'KPH')])
-            self.settingslayout.addWidget(speed_radio)
+            self.speed_radio = RadioButton(self.settings_card, "Speed Unit", options=["MPH", "KPH"], selected=speed, element=self.element, functions=[lambda: update_settings('units', 'speed', 'MPH'), lambda: update_settings('units', 'speed', 'KPH')])
+            self.settingslayout.addWidget(self.speed_radio)
+
+            self.apply_theme(theme)
 
             QApplication.processEvents()
 
@@ -539,6 +588,57 @@ class MainWindow(QMainWindow):
 
             self.settings_card.updatePixmap()
     
+    def apply_theme(self, index):
+        cards_to_change = [
+            self.menu_card,
+            self.hourly_forecast,
+            self.daily_forecast, 
+            self.uvf,
+            self.weather_map_card,
+        ]
+
+        if hasattr(self, 'search_bar') and self.search_bar and not sip.isdeleted(self.search_bar):
+            cards_to_change.append(self.search_bar)
+        if hasattr(self, 'suggestions') and self.suggestions and not sip.isdeleted(self.suggestions):
+            cards_to_change.append(self.suggestions)
+
+        for card in cards_to_change:
+            if card is not None:
+                card.alternate(index)
+                card.updatePixmap()
+
+        if hasattr(self, 'settings_card') and self.settings_card is not None:
+            if index == 0: 
+                self.settings_card.dark.setStyleSheet('''
+                        background: rgba(0,0,0,50);
+                        border-radius: 30px;                      
+                ''')
+                if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
+                if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
+                if getattr(self, 'length_radio', None): self.length_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
+                if getattr(self, 'speed_radio', None): self.speed_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
+            
+            else:
+                self.settings_card.dark.setStyleSheet('''
+                        background: rgba(255,255,255,10);
+                        border-radius: 30px;                      
+                ''')
+
+                if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
+                if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
+                if getattr(self, 'length_radio', None): self.length_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
+                if getattr(self, 'speed_radio', None): self.speed_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
+
+            self.settings_card.updatePixmap()
+            if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.updatePixmap()
+            if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.updatePixmap()
+            if getattr(self, 'length_radio', None): self.length_radio.radio_card.updatePixmap()
+            if getattr(self, 'speed_radio', None): self.speed_radio.radio_card.updatePixmap()
+        
+        QApplication.processEvents()
+
+
+
     def dashboard(self, event):
         if not hasattr(self, 'dashboardpop') or self.dashboardpop == None:
             self.dashboardpop = Popup(self)
@@ -747,7 +847,11 @@ class MainWindow(QMainWindow):
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
 
-        self.path = os.path.abspath("./map-light.html")
+        theme = check_theme()
+
+        if theme == 0: self.path = os.path.abspath("./map-dark.html")
+        else: self.path = os.path.abspath("./map-dark.html")
+        
         map_widget.setUrl(QUrl.fromLocalFile(self.path))
         map_layout.addWidget(map_widget)
         

@@ -4,7 +4,17 @@ from pathlib import Path
 from ui_engine import get_map_preview
 import requests
 import random
+import json
 
+file = "./settings.json"
+
+def check_theme():
+    with open(file, "r") as settings:
+        data = json.load(settings)
+        theme = data.get("theme", {})
+        main = theme.get("main") if isinstance(theme, dict) else theme
+
+        return 0 if main == "dark" else 1
 
 class Weather:
     def __init__(self, location):
@@ -44,11 +54,17 @@ class WeatherWait(QThread):
         try:
             weather = Weather(self.location)
             
+            theme = check_theme()
+
+            if theme == 0: map_val = get_map_preview(305, theme="dark")
+            else: map_val = get_map_preview(305, theme="light")
+
+
             weather_data = {
                 "current": weather.retrieve_current_weather(),
                 "forecast": weather.retrieve_forecast(),
                 "uv": weather.retrieve_uv(),
-                "map": get_map_preview(305, theme="light")
+                "map": map_val
             }
             self.data.emit(weather_data)
             
