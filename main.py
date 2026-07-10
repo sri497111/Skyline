@@ -14,15 +14,18 @@ import json
 # Modules
 from location import *
 from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
-from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim
+from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text
 from settings import load_settings, update_settings, check_theme
 
 # System
 from system import *
+import platform
+import subprocess
 import sys
 import datetime
 import os
 import gc
+import webbrowser
 
 # --------------------------------------------------------------------------
 
@@ -545,7 +548,6 @@ class MainWindow(QMainWindow):
                 self.temp_radio = None
                 self.theme_radio = None
                 self.length_radio = None
-                self.speed_radio = None
 
             
             self.settingspop.destroyed.connect(cleanup)
@@ -555,7 +557,7 @@ class MainWindow(QMainWindow):
 
             theme = check_theme()
 
-            self.settingspop.popup_layout.addWidget(self.settings_card, alignment=Qt.AlignCenter)
+            self.settingspop.popup_layout.addWidget(self.settings_card)
 
             self.settingslayout = QVBoxLayout(self.settings_card)
             self.settingslayout.setContentsMargins(50, 20, 50, 20)
@@ -564,7 +566,6 @@ class MainWindow(QMainWindow):
 
             temp = 0 if current['units']['temperature'] == "C" else 1
             length = 0 if current['units']['length'] == "MM" else 1
-            speed = 0 if current['units']['speed'] == "MPH" else 1
 
             self.temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=temp, element=self.element, functions=[lambda: update_settings('units', 'temperature', 'C'), lambda: update_settings('units', 'temperature', 'F')])
             self.settingslayout.addWidget(self.temp_radio)
@@ -573,11 +574,12 @@ class MainWindow(QMainWindow):
             self.theme_radio.valueChanged.connect(self.apply_theme)
             self.settingslayout.addWidget(self.theme_radio)
 
-            self.length_radio = RadioButton(self.settings_card, "Length Unit", options=["Metric", "Imperial"], selected=length, element=self.element, functions=[lambda: update_settings('units', 'length', 'MM'), lambda: update_settings('units', 'length', 'IN')])
+            self.length_radio = RadioButton(self.settings_card, "Unit System", options=["Metric", "Imperial"], selected=length, element=self.element, functions=[lambda: update_settings('units', 'length', 'MM'), lambda: update_settings('units', 'length', 'IN')])
             self.settingslayout.addWidget(self.length_radio)
 
-            self.speed_radio = RadioButton(self.settings_card, "Speed Unit", options=["MPH", "KPH"], selected=speed, element=self.element, functions=[lambda: update_settings('units', 'speed', 'MPH'), lambda: update_settings('units', 'speed', 'KPH')])
-            self.settingslayout.addWidget(self.speed_radio)
+            self.credits = hover_text(self.settings_card, self.element, "Open Credits", 10)
+            self.credits.mousePressEvent = self.open_credits
+            self.settingslayout.addWidget(self.credits, alignment=Qt.AlignCenter)
 
             self.apply_theme(theme)
 
@@ -616,7 +618,7 @@ class MainWindow(QMainWindow):
                 if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
                 if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
                 if getattr(self, 'length_radio', None): self.length_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
-                if getattr(self, 'speed_radio', None): self.speed_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
+                if getattr(self, 'credits', None): self.credits.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
             
             else:
                 self.settings_card.dark.setStyleSheet('''
@@ -627,16 +629,18 @@ class MainWindow(QMainWindow):
                 if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
                 if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
                 if getattr(self, 'length_radio', None): self.length_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
-                if getattr(self, 'speed_radio', None): self.speed_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
+                if getattr(self, 'credits', None): self.credits.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
 
             self.settings_card.updatePixmap()
             if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.updatePixmap()
             if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.updatePixmap()
             if getattr(self, 'length_radio', None): self.length_radio.radio_card.updatePixmap()
-            if getattr(self, 'speed_radio', None): self.speed_radio.radio_card.updatePixmap()
+            if getattr(self, 'credits', None): self.credits.updatePixmap()
         
         QApplication.processEvents()
 
+    def unit_change(self, index):
+        pass
 
 
     def dashboard(self, event):
@@ -1093,6 +1097,29 @@ class MainWindow(QMainWindow):
         info_layout.addWidget(condition)
         
         status_layout.addLayout(info_layout)
+    
+    def open_credits(self, event):
+        file = "./attribution.txt"
+        current_os = platform.system()
+
+        def check(internet_check):
+            if internet_check:
+                chrome = webbrowser.get('C:/Program Files/Google/Chrome/Application/chrome.exe %s')
+                try: chrome.open_new_tab("https://github.com/sri497111/Skyline/blob/main/attribution.txt") 
+                except: chrome.open_new("https://github.com/sri497111/Skyline/blob/main/attribution.txt")
+            else:
+                try: 
+                    if current_os == "Windows":
+                        os.startfile(os.path.abspath(file))
+                    elif current_os == "Darwin":
+                        subprocess.run(['open', os.path.abspath(file)])
+                    else:
+                        webbrowser.open(os.path.abspath(file))
+                except:
+                    print("Error")
+        internet_check(callback=check)
+                    
+
         
 def main():
 

@@ -1,11 +1,11 @@
 {
     "units": {
         "speed": "MPH",
-        "temperature": "F",
-        "length": "IN"
+        "temperature": "C",
+        "length": "MM"
     },
     "theme": {
-        "main": "light"
+        "main": "dark"
     },
     "credit_file": {
         "file_path": "./attribution.txt"

@@ -195,6 +195,20 @@ def hover_svg(path, width, height):
     
     return container
 
+def hover_text(parent, pixmap, word, font_size):
+    container = Card(parent, pixmap, 40, radius=20)
+    container.setFixedWidth(150)
+    container.setCursor(Qt.PointingHandCursor)
+
+    container_layout = QHBoxLayout(container)
+
+    words = text(str(word), "white", poppins("semi bold"), font_size, container)
+
+    container_layout.addWidget(words, alignment=Qt.AlignCenter)
+
+    return container
+
+
 def get_map_preview(height, theme="light"):
     html = Html2Image(custom_flags=["--headless=new", "--hide-scrollbar", "--disable-gpu"], disable_logging=True)
     
