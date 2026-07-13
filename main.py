@@ -16,6 +16,7 @@ from location import *
 from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text
 from settings import load_settings, update_settings, check_theme
+from system import internet_check
 
 # System
 from system import *
@@ -118,6 +119,7 @@ class MainWindow(QMainWindow):
         self.current_location_name = str(self.current_weather_data["name"])
         
         self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))
+        self.raw_temp = round(int(self.current_weather_data['main']['temp']), 0)
         self.current_condition = str(self.current_weather_data["weather"][0]["main"])
         
         self.weather_forecast_data = data['forecast']
@@ -565,16 +567,16 @@ class MainWindow(QMainWindow):
             current = load_settings()
 
             temp = 0 if current['units']['temperature'] == "C" else 1
-            length = 0 if current['units']['length'] == "MM" else 1
+            length = 0 if current['units']['length'] == 'MM' else 1
 
-            self.temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=temp, element=self.element, functions=[lambda: update_settings('units', 'temperature', 'C'), lambda: update_settings('units', 'temperature', 'F')])
+            self.temp_radio = RadioButton(self.settings_card, "Temperature", options=["Celsius", "Fahrenheit"], selected=temp, element=self.element, functions=[lambda: (update_settings('units', 'temperature', 'C'), self.unit_change()), lambda: (update_settings('units', 'temperature', 'F'), self.unit_change())])
             self.settingslayout.addWidget(self.temp_radio)
 
             self.theme_radio = RadioButton(self.settings_card, "Theme", options=["Dark", "Light"], selected=theme, element=self.element, functions=[lambda: update_settings('theme', 'main', 'dark'), lambda: update_settings('theme', 'main', 'light')])
             self.theme_radio.valueChanged.connect(self.apply_theme)
             self.settingslayout.addWidget(self.theme_radio)
 
-            self.length_radio = RadioButton(self.settings_card, "Unit System", options=["Metric", "Imperial"], selected=length, element=self.element, functions=[lambda: update_settings('units', 'length', 'MM'), lambda: update_settings('units', 'length', 'IN')])
+            self.length_radio = RadioButton(self.settings_card, "Unit System", options=["Metric", "Imperial"], selected=length, element=self.element, functions=[lambda: (update_settings('units', 'length', 'MM'), update_settings('units', 'speed', 'KMH'), self.unit_change()), lambda: (update_settings('units', 'length', 'IN'), update_settings('units', 'speed', 'MPH'), self.unit_change())])
             self.settingslayout.addWidget(self.length_radio)
 
             self.credits = hover_text(self.settings_card, self.element, "Open Credits", 10)
@@ -639,8 +641,49 @@ class MainWindow(QMainWindow):
         
         QApplication.processEvents()
 
-    def unit_change(self, index):
-        pass
+    def unit_change(self, index=None):
+        QTimer.singleShot(0, self.apply_unit_change)
+
+    def apply_unit_change(self):
+        global LENGTH_UNIT, SPEED_UNIT
+
+        unit = load_settings()
+        LENGTH_UNIT = unit['units']['length']
+        SPEED_UNIT = unit['units']['speed']
+
+        self.status_bar()
+
+        if hasattr(self, 'timeline'):
+            while self.timeline.count():
+                child = self.timeline.takeAt(0)
+                wid = child.widget()
+                if wid is not None:
+                    wid.deleteLater()
+            self.populate_hourly_forecast(self.weather_hourly_forecast_data)
+
+
+        if hasattr(self, 'daily_layout'):
+            while self.daily_layout.count():
+                child = self.daily_layout.takeAt(0)
+                wid = child.widget()
+                if wid is not None:
+                    wid.deleteLater()
+            self.populate_daily_forecast(self.weather_daily_forecast_data)
+            
+        if hasattr(self, 'uvf_layout'):
+            while self.uvf_layout.count():
+                child = self.uvf_layout.takeAt(0)
+                wid = child.widget()
+                if wid is not None:
+                    wid.deleteLater()
+            self.populate_uvf()
+
+        QApplication.processEvents()
+        if hasattr(self, 'hourly_forecast'): self.hourly_forecast.updatePixmap()
+        if hasattr(self, 'daily_forecast'): self.daily_forecast.updatePixmap()
+        if hasattr(self, 'uvf'): self.uvf.updatePixmap()
+
+
 
 
     def dashboard(self, event):
@@ -691,7 +734,10 @@ class MainWindow(QMainWindow):
         self.daily_layout.setSpacing(0)
         
         data = self.weather_daily_forecast_data
-        print(data)
+
+        unit = load_settings()
+        is_fahrenheit = unit['units']['temperature'] == "F"
+        is_mph = unit['units']['speed'] == "MPH"
         
         for i in range(5):
             horizontal_widget = QWidget()
@@ -721,15 +767,28 @@ class MainWindow(QMainWindow):
             day.setFixedWidth(200)
             day.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             
-            min_max = data[i][2], data[i][3]
+            if is_fahrenheit:
+                min_max = data[i][2], data[i][3]
+            else:
+                min_max = round((int(data[i][2])-32)*5/9), round((int(data[i][3])-32)*5/9)
+            
             min_max_string = f"{min_max[0]}\u00b0 / {min_max[1]}\u00b0"
             min_max = text(min_max_string, "white", poppins("semi bold"), 20, horizontal_widget)
             min_max.setFixedWidth(120)
             min_max.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             
+            
+            if is_mph:
+                wind_speed = data[i][5]
+                SPEED_UNIT = "MPH"
+            else:
+                wind_speed = round(int(data[i][5])*1.6)
+                SPEED_UNIT = "KMH"
+
+
             if int(data[i][4]) == 0:
                 end_icon = svg("./Icons/wind.svg", 51, 51)
-                num = text(str(data[i][5])+" "+SPEED_UNIT, "white", poppins("semi bold"), 17, horizontal_widget)
+                num = text(str(wind_speed)+" "+SPEED_UNIT, "white", poppins("semi bold"), 17, horizontal_widget)
                 num.setFixedWidth(85)
             else:
                 end_icon = svg("./Icons/raindrop.svg", 56, 56)
@@ -745,6 +804,7 @@ class MainWindow(QMainWindow):
             hbox.addWidget(end_icon)
             hbox.addWidget(num)
             self.daily_layout.addWidget(horizontal_widget)
+            horizontal_widget.show()
 
     def hourly(self):
         self.hourly_forecast = Card(self.viewport, self.element, 200)
@@ -775,7 +835,13 @@ class MainWindow(QMainWindow):
             else:
                 condition = svg("./Icons/rain.svg", 64, 64)
             
-            temp = text(" "+str(forecast_data[i][2])+"\u00b0", "white", poppins("semi bold"), 18, vertical_widget)
+            unit = load_settings()
+            is_fahrenheit = unit['units']['temperature'] == "F"
+
+            temp_num = forecast_data[i][2]
+            temp_c = round((forecast_data[i][2]-32)*5/9)
+            
+            temp = text(" "+str(temp_num if is_fahrenheit else temp_c)+"\u00b0", "white", poppins("semi bold"), 18, vertical_widget)
             temp.setAlignment(Qt.AlignCenter)
             
             
@@ -787,6 +853,7 @@ class MainWindow(QMainWindow):
             vdata.setAlignment(Qt.AlignCenter)
             
             self.timeline.addWidget(vertical_widget)
+            vertical_widget.show()
     
     def weather_map(self):
         self.weather_map_card = Card(self.viewport, self.element, 350)
@@ -963,20 +1030,34 @@ class MainWindow(QMainWindow):
 
         rf_layout.addWidget(rfw, alignment=Qt.AlignCenter)
         rf_layout.addStretch(1)
+
+        unit = load_settings()
+        is_mm = unit['units']['length'] == "MM"
+
+        if is_mm: LENGTH_UNIT = "MM"
+        else: LENGTH_UNIT = "IN"
+
         
         if LENGTH_UNIT == "MM":
             if int(self.precip_cm) != 0:
-                precip_text = text(str(self.precip_cm)+'mm', "white", poppins("semi bold"), 40, rf_widget) 
+                centered_mm = f"{self.precip_cm}mm"
+                precip_text = text(centered_mm, "white", poppins("semi bold"), 30, rf_widget) 
             else:
-                precip_text = text(' '+str(0)+'mm', "white", poppins("semi bold"), 40, rf_widget)
+                centered_mm = f"{self.precip_cm}mm"
+                precip_text = text(centered_mm, "white", poppins("semi bold"), 30, rf_widget)
+            
+            precip_text.setAlignment(Qt.AlignCenter)
         else:
-            if int(self.precip_inch) == 0:
+            if (self.precip_inch) == 0:
                 precip_text = text(str(0)+'"', "white", poppins("semi bold"), 40, rf_widget, 30)
             else:
-                precip_text = text(str(self.precip_inch)+'"', "white", poppins("semi bold"), 40, rf_widget)
+                centered_inch = f'{round(self.precip_inch, 1)}"'
+                precip_text = text(centered_inch, "white", poppins("semi bold"), 40, rf_widget, 30)
+            
+            precip_text.setAlignment(Qt.AlignCenter)
         
         
-        rf_layout.addWidget(precip_text, alignment=Qt.AlignCenter)
+        rf_layout.addWidget(precip_text)
         rf_layout.addStretch(1)
         rf_desc = text("In the next 24 HRS", "white", poppins("semi bold"), 12, rf_widget, -15)
         rf_desc.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
@@ -1008,9 +1089,15 @@ class MainWindow(QMainWindow):
         feels_layout.addWidget(iwt, alignment=Qt.AlignCenter)
         
         feels_layout.addStretch(1)
-        
-        feels_like_temp = text(' '+str(self.feels_like)+"\u00b0", "white", poppins("semi bold"), 40, feels_widget, 20)
-        feels_layout.addWidget(feels_like_temp, alignment=Qt.AlignCenter)
+
+        unit = load_settings()
+        is_fahrenheit = unit['units']['temperature'] == "F"
+
+        feels_like = self.feels_like if is_fahrenheit else round((self.feels_like-32)*5/9)
+        feels_like_temp = f"{feels_like}\u00b0"
+        feels_like_temp = text(feels_like_temp, "white", poppins("semi bold"), 40, feels_widget, 20)
+        feels_like_temp.setAlignment(Qt.AlignCenter)
+        feels_layout.addWidget(feels_like_temp)
         
         feels_layout.addStretch(1)
         
@@ -1045,11 +1132,22 @@ class MainWindow(QMainWindow):
         
         
     def status_bar(self):
-        self.status = QWidget(self.viewport)
-        self.status.setGeometry(35, 75, 828, 120)
-        status_layout = QHBoxLayout(self.status)
-        status_layout.setContentsMargins(20, 0, 35, 0)
-        status_layout.setSpacing(15)
+        if not hasattr(self, 'status_layout') or self.status_layout is None:
+            self.status = QWidget(self.viewport)
+            self.status.setGeometry(35, 75, 828, 120)
+            self.status_layout = QHBoxLayout(self.status)
+            self.status_layout.setContentsMargins(20, 0, 35, 0)
+            self.status_layout.setSpacing(15)
+        else:
+            while self.status_layout.count():
+                child = self.status_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+                elif child.layout():
+                    while child.layout().count():
+                        sub = child.layout().takeAt(0)
+                        if sub.widget():
+                            sub.widget().deleteLater()
         
 
         if str(self.current_condition).lower() == "clouds":
@@ -1059,15 +1157,25 @@ class MainWindow(QMainWindow):
         elif str(self.current_condition).lower() == "rain":
             condition = svg("./Icons/rain.svg", 190, 190)
         #condition.setStyleSheet("margin-top: 22px;")
+
+        unit = load_settings()
+        is_fahrenheit = unit['units']['temperature'] == "F"
+
+        temp_number = self.raw_temp
+        temp_c = str(round(((int(temp_number)-32)*5/9)))
+
+        if is_fahrenheit:
+            temp = text(str(temp_number)+"\u00b0", "white", poppins("semi bold"), 65, self.status)
+        else:
+            temp = text(str(temp_c)+"\u00b0", "white", poppins("semi bold"), 65, self.status)
         
-        temp = text(self.current_temp+"\u00b0", "white", poppins("semi bold"), 65, self.status)
         temp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         temp.setContentsMargins(0, 25, 0, 0)
         temp.setMinimumWidth(200)
 
         
-        status_layout.addWidget(condition, alignment=Qt.AlignTop)
-        status_layout.addWidget(temp)
+        self.status_layout.addWidget(condition, alignment=Qt.AlignTop)
+        self.status_layout.addWidget(temp)
 
 
         info_layout = QVBoxLayout()
@@ -1096,7 +1204,12 @@ class MainWindow(QMainWindow):
         info_layout.addWidget(location)
         info_layout.addWidget(condition)
         
-        status_layout.addLayout(info_layout)
+        self.status_layout.addLayout(info_layout)
+
+        self.status.show()
+        condition.show()
+        temp.show()
+        location.show()
     
     def open_credits(self, event):
         file = "./attribution.txt"

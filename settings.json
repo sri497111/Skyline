@@ -1,7 +1,7 @@
 {
     "units": {
-        "speed": "MPH",
-        "temperature": "C",
+        "speed": "KMH",
+        "temperature": "F",
         "length": "MM"
     },
     "theme": {

@@ -147,7 +147,7 @@ def parse_forecast_for_precip(data):
     
     total_inches = total / 25.4
     
-    return round(total_inches, 2), round(total, 1)
+    return total_inches, round(total, 1)
 
 
 
