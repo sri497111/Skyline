@@ -1,8 +1,8 @@
 {
     "units": {
-        "speed": "KMH",
-        "temperature": "F",
-        "length": "MM"
+        "speed": "MPH",
+        "temperature": "C",
+        "length": "IN"
     },
     "theme": {
         "main": "dark"

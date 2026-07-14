@@ -2,31 +2,31 @@
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy, QLineEdit
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop
-from PyQt5.QtGui import QFontDatabase, QPixmap, QPainterPath, QRegion, QFont
-from PyQt5 import QtWidgets
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
+from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop, QEvent, QParallelAnimationGroup, QPoint
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
+from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+from PyQt5.QtGui import QPixmap, QPainterPath, QRegion, QFont
 from PyQt5 import sip
 import json
 
 # Modules
-from location import *
-from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text
+from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
 from settings import load_settings, update_settings, check_theme
 from system import internet_check
+from location import *
 
 # System
 from system import *
-import platform
+import webbrowser
 import subprocess
-import sys
+import platform
 import datetime
+import sys
 import os
 import gc
-import webbrowser
+
 
 # --------------------------------------------------------------------------
 
@@ -73,9 +73,7 @@ class MainWindow(QMainWindow):
         
         # Init Weather
         self.location = (29.4243, -98.4911)
-        self.weather_vars(self.location)
         
-
         self.centralwidget = QWidget()
         self.setCentralWidget(self.centralwidget)
 
@@ -187,7 +185,7 @@ class MainWindow(QMainWindow):
         QApplication.processEvents()
 
         self.timer = QTimer()
-        self.timer.timeout.connect(self.intertia)
+        self.timer.timeout.connect(self.inertia)
         self.timer.start(self.frequency)
 
         
@@ -237,22 +235,57 @@ class MainWindow(QMainWindow):
 
     def wheelEvent(self, event):
         self.v += event.angleDelta().y() * self.sensitvity
-    def intertia(self):
+    def inertia(self):
         if self.v > 0.05 or self.v < -0.05:
             self.yv += self.v
             self.v *= self.friction
             
-            self.viewport.move(0, int(self.yv))
             
-            self.menu_card.updatePixmap()
-            self.hourly_forecast.updatePixmap()
-            self.daily_forecast.updatePixmap()
-            self.uvf.updatePixmap()
-            self.weather_map_card.updatePixmap()
+            if hasattr(self, 'dashboardpop') and self.dashboardpop is not None and not sip.isdeleted(self.dashboardpop):
+                if hasattr(self, 'dashboard_container') and not sip.isdeleted(self.dashboard_container):
+                    if self.yv > 0:
+                        self.yv = 0
+                        self.v = 0
+                    elif self.yv < -620:
+                        self.yv = -620
+                        self.v = 0
+                    
+                    
+                    self.sensitvity = 0.01
+                    self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
+
+                    for card in self.dash_cards:
+                        if card and not sip.isdeleted(card):
+                            card.updatePixmap()
+
+            else:
+                if self.yv > 0:
+                    self.yv = 0
+                    self.v = 0
+                elif self.yv < -1250:
+                    self.yv = -1250
+                    self.v = 0
+                
+
+
+                self.sensitvity = 0.03
+                self.viewport.move(0, int(self.yv))
+
+                self.menu_card.updatePixmap()
+                self.hourly_forecast.updatePixmap()
+                self.daily_forecast.updatePixmap()
+                self.uvf.updatePixmap()
+                self.weather_map_card.updatePixmap()
             
         else:
             if self.v != 0:
                 self.v = 0
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Wheel:
+            self.v += event.angleDelta().y() * self.sensitvity
+            return True
+        return super().eventFilter(watched, event)
+
     def mousePressEvent(self, event):
         if hasattr(self, "popup_card") and self.popup_card is not None:
             if not sip.isdeleted(self.popup_card):
@@ -688,8 +721,91 @@ class MainWindow(QMainWindow):
 
     def dashboard(self, event):
         if not hasattr(self, 'dashboardpop') or self.dashboardpop == None:
-            self.dashboardpop = Popup(self)
+            self.dashboardpop = Popup(self, clear=False)
             self.dashboardpop.destroyed.connect(lambda: setattr(self, 'dashboardpop', None))
+            self.dashboardpop.installEventFilter(self)
+
+            theme = check_theme()
+            if theme == 0: opaque_element=QPixmap("./Backgrounds/dark-element.png")
+            else: opaque_element=QPixmap("./Backgrounds/light-element.png")
+
+            self.yv = 0
+
+            def cleanup():
+                self.dashboardpop = None
+                self.dash_cards = []
+
+                self.yv = 0
+
+                for i in range(1,6):
+                    if hasattr(self, f'card{i}'):
+                        delattr(self, f'card{i}')
+
+            self.dashboardpop.destroyed.connect(cleanup)
+            
+            self.dashboard_container = QWidget(self.dashboardpop)
+            self.dashboard_container.setGeometry(64,0,750,1400)
+            self.dashboard_container.setStyleSheet("background: transparent;")
+
+            self.dashboard_layout = QVBoxLayout(self.dashboard_container)
+            self.dashboard_layout.setContentsMargins(25,50,25,50)
+            self.dashboard_layout.setSpacing(15)
+            self.dashboard_layout.setAlignment(Qt.AlignTop)
+
+            self.dash_cards = []
+
+            for i in range(1,6):
+                card = Card(self.dashboard_container, opaque_element, 200)
+                card.setFixedWidth(675)
+                card.setCursor(Qt.PointingHandCursor)
+                card.updatePixmap()
+
+                setattr(self, f'card{i}', card)
+
+                self.dash_cards.append(card)
+            
+                self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
+
+
+            self.dashboard_container.show()
+
+            QTimer.singleShot(100, lambda: self.move_cards(self.dash_cards[0], self.dash_cards[1]))
+
+        else:
+            for card in self.dash_cards:
+                if card is not sip.isdeleted(card):
+                    card.updatePixmap()
+
+    def move_cards(self, card_a, card_b, height=215, direction="down"):
+        # Pass in 2 cards and card height and will move and swap pos accordingly (slide past each other).
+
+        self.parallel = QParallelAnimationGroup(self)
+
+        card_a_anim = QPropertyAnimation(card_a, b'pos')
+        card_a_anim.setDuration(600)
+
+        if direction=="down": card_a_anim.setEndValue(card_a.pos() + QPoint(0, height)) 
+        else: card_a_anim.setEndValue(card_a.pos() - QPoint(0, height))
+        
+        card_a_anim.setEasingCurve(QEasingCurve.InOutQuad)
+
+        self.parallel.addAnimation(card_a_anim)
+
+        card_b_anim = QPropertyAnimation(card_b, b'pos')
+        card_b_anim.setDuration(600)
+
+        if direction == "down": card_b_anim.setEndValue(card_b.pos() - QPoint(0, height)) 
+        else: card_b_anim.setEndValue(card_b.pos() + QPoint(0, height)) 
+        
+        card_b_anim.setEasingCurve(QEasingCurve.InOutQuad)
+
+        self.parallel.addAnimation(card_b_anim)
+
+        self.parallel.start()
+
+
+
+
 
     def location_hover_button(self, text_l):
         container = QFrame()
@@ -1126,13 +1242,9 @@ class MainWindow(QMainWindow):
         
         self.uvf_layout.addWidget(column_widget)
         
-    def weather_vars(self, location):
-        pass
-        
-        
         
     def status_bar(self):
-        if not hasattr(self, 'status_layout') or self.status_layout is None:
+        if not hasattr(self, 'status_layout') or self.status_layout is None or sip.isdeleted(self.status_layout):
             self.status = QWidget(self.viewport)
             self.status.setGeometry(35, 75, 828, 120)
             self.status_layout = QHBoxLayout(self.status)

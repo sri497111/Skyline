@@ -5,10 +5,20 @@ from PyQt5.QtCore import QSize, QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimati
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from system import *
 from html2image import Html2Image
+import json
 import os
 
 dpi = get_dpi()
 
+settings_file = "./settings.json"
+
+def check_theme():
+    with open(settings_file, "r") as settings:
+        data = json.load(settings)
+        theme = data.get("theme", {})
+        main = theme.get("main") if isinstance(theme, dict) else theme
+
+        return 0 if main == "dark" else 1
 
 class Card(QFrame):
     clicked = pyqtSignal()
@@ -261,17 +271,39 @@ class Loading_Icon(QSvgWidget):
         self.rend.render(painter, QRectF(self.rect()))
 
 class Popup(QWidget):
-    def __init__(self, main_window):
+    def __init__(self, main_window, clear=True):
         super().__init__(main_window)
         self.main = main_window
         self.setGeometry(0,0, self.main.width(), self.main.height())
 
-        self.blur = Card(parent=self, pixmap=self.main.element, h=self.main.height(), window_size=(main_window.width(), main_window.height()), radius=0, raise_dark=True, window_widget=main_window)
-        self.blur.setGeometry(self.rect())
 
-        self.dim = QLabel(self)
-        self.dim.setGeometry(self.rect())
-        self.dim.setStyleSheet("background: rgba(0,0,0,0);")
+
+        if clear:
+            self.blur = Card(parent=self, pixmap=self.main.element, h=self.main.height(), window_size=(main_window.width(), main_window.height()), radius=0, raise_dark=True, window_widget=main_window)
+            self.blur.setGeometry(self.rect())
+
+            self.dim = QLabel(self)
+            self.dim.setGeometry(self.rect())
+            self.dim.setStyleSheet("background: rgba(0,0,0,0);")
+        
+        else:
+            # For the ability for flat themes
+
+            app_theme = check_theme()
+
+            if app_theme == 0:
+                self.pixmap = QPixmap("./Backgrounds/dark-theme.png")
+            else:
+                self.pixmap = QPixmap("./Backgrounds/light-theme.png")
+
+            # Not actually blur but just for the sake of not changing it too much
+
+            self.blur = Card(parent=self, pixmap=self.pixmap, h=self.main.height(), window_size=(main_window.width(), main_window.height()), radius=0, raise_dark=True, window_widget=main_window)
+            self.blur.setGeometry(self.rect())
+
+            self.dim = QLabel(self)
+            self.dim.setGeometry(self.rect())
+            self.dim.setStyleSheet("background: rgba(0,0,0,0);")
 
         self.popup_layout = QVBoxLayout(self)
         self.popup_layout.setContentsMargins(50,0,50,0)
