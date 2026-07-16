@@ -50,6 +50,18 @@ class Card(QFrame):
                 background: rgba(0,0,0,30);
                 border-radius: {radius}px;
         """)
+        theme = check_theme()
+        color = "white" if theme == 0 else "black"
+        
+        self.highlight = QLabel(self)
+        self.highlight.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.highlight.setStyleSheet(f"""
+                border: 3px solid {color};
+                border-radius: {radius};
+                background: transparent;
+        """)
+        self.highlight.hide()
+
         
         
     def updatePixmap(self):
@@ -82,6 +94,7 @@ class Card(QFrame):
         
         self.bg.setGeometry(0, 0, w, h)
         self.dark.setGeometry(0, 0, w, h)
+        self.highlight.setGeometry(0,0,self.width(),self.height())
 
         self.path = QPainterPath()
         self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
@@ -101,6 +114,22 @@ class Card(QFrame):
                     background: rgba(255,255,255,30);
                     border-radius: {self.radius}px;
             """)
+    
+    def update_highlight_theme(self):
+        theme = check_theme()
+        color = "white" if theme == 0 else "black"
+        
+        self.highlight = QLabel(self)
+        self.highlight.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.highlight.setStyleSheet(f"""
+                border: 3px solid {color};
+                border-radius: {self.radius};
+                background: transparent;
+        """)
+        self.highlight.hide()
+
+
+        
 
         
 

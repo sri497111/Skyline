@@ -253,6 +253,9 @@ class MainWindow(QMainWindow):
                     
                     self.sensitvity = 0.01
                     self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
+                    
+                    if hasattr(self, 'move_menu') and self.move_menu is not None and not sip.isdeleted(self.move_menu):
+                        self.move_menu.move(self.move_menu.x(), self.move_menu_relative+int(self.yv))
 
                     for card in self.dash_cards:
                         if card and not sip.isdeleted(card):
@@ -753,12 +756,22 @@ class MainWindow(QMainWindow):
             self.dashboard_layout.setAlignment(Qt.AlignTop)
 
             self.dash_cards = []
+            self.selected_card = None
 
             for i in range(1,6):
                 card = Card(self.dashboard_container, opaque_element, 200)
                 card.setFixedWidth(675)
                 card.setCursor(Qt.PointingHandCursor)
+                
+                card.hold = QTimer(self)
+                card.hold.setSingleShot(True)
+                card.hold.timeout.connect(lambda c=card, idx=i: self.card_select(c,idx))
+
+                card.mousePressEvent = lambda event, c=card: c.hold.start(1000)
+                card.mouseReleaseEvent = lambda event, c=card: c.hold.stop()
+
                 card.updatePixmap()
+
 
                 setattr(self, f'card{i}', card)
 
@@ -769,7 +782,7 @@ class MainWindow(QMainWindow):
 
             self.dashboard_container.show()
 
-            QTimer.singleShot(100, lambda: self.move_cards(self.dash_cards[0], self.dash_cards[1]))
+            #QTimer.singleShot(100, lambda: self.move_cards(self.dash_cards[0], self.dash_cards[1]))
 
         else:
             for card in self.dash_cards:
@@ -802,10 +815,61 @@ class MainWindow(QMainWindow):
         self.parallel.addAnimation(card_b_anim)
 
         self.parallel.start()
+    
+    def card_select(self, card, index):
+        if self.selected_card is not None:
+            prev_card = self.dash_cards[self.selected_card - 1]
+            prev_card.highlight.hide()
+
+            if hasattr(self, 'move_menu') and self.move_menu is not None and not sip.isdeleted(self.move_menu):
+                self.move_menu.hide()
+                self.move_menu.destroy()
+
+        self.selected_card = index
+        card.highlight.show()
+
+        
 
 
+        card.v_center = int(card.y() + (card.height()/2))
+        area = (card.x()+card.width()+30, card.v_center)
+        
+        if hasattr(self, 'move_menu') and self.move_menu is not None and not sip.isdeleted(self.move_menu):
+            self.move_menu.deleteLater()
 
+        self.move_menu = QWidget(self.dashboardpop)
+        self.move_menu.setFixedSize(70, 190)
 
+        self.menu = QVBoxLayout(self.move_menu)
+        self.menu.setContentsMargins(5,5,5,5)
+        self.menu.setAlignment(Qt.AlignCenter)
+        self.menu.setSpacing(30)
+
+        theme = check_theme()
+        color = "white" if theme == 0 else "black"
+
+        self.up = hover_svg(f"./Icons/up-direction-{color}.svg", 25, 25)
+        self.menu.addWidget(self.up)
+
+        self.cancel = hover_svg(f"./Icons/cancel-{color}.svg", 25, 25)
+        self.cancel.mousePressEvent = lambda event: self.hide(event, card=card) 
+        self.menu.addWidget(self.cancel)
+
+        self.down = hover_svg(f"./Icons/down-direction-{color}.svg", 25, 25)
+        self.menu.addWidget(self.down)
+
+        self.move_menu_relative = card.v_center - 95
+
+        self.move_menu.move(area[0]+35, area[1]-95)
+
+        self.move_menu.show()
+        self.move_menu.raise_()
+
+    def hide(self, event, card):
+            card.highlight.hide()
+            if hasattr(self, 'move_menu') and self.move_menu is not None and not sip.isdeleted(self.move_menu):
+                self.move_menu.hide()
+                self.move_menu.destroy()
 
     def location_hover_button(self, text_l):
         container = QFrame()

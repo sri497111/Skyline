@@ -49,3 +49,42 @@ Loading Icon -
 From loading.io
 
 ---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
+Up Arrow Icon -
+
+NAME - Up Chevron SVG Vector 
+COLLECTION: Zest Interface Icons
+LICENSE: MIT License
+AUTHOR: zest
+
+From svgrepo.com (https://www.svgrepo.com/svg/510303/up-chevron)
+
+---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
+Down Arrow Icon -
+
+NAME - Down Chevron SVG Vector 
+COLLECTION: Zest Interface Icons
+LICENSE: MIT License
+AUTHOR: zest
+
+From svgrepo.com (https://www.svgrepo.com/svg/509899/down-chevron)
+
+---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
+Cancel Icon -
+
+NAME - Cancel SVG Vector
+COLLECTION: Casino And Gambling Icons
+LICENSE: CC Attribution License
+AUTHOR: Mike Hunter
+
+From svgrepo.com (https://www.svgrepo.com/svg/410395/cancel)
+
+---------------------------------------------------------------------------------
