@@ -8,7 +8,6 @@ from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from PyQt5.QtGui import QPixmap, QPainterPath, QRegion, QFont
 from PyQt5 import sip
-import json
 
 # Modules
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text
@@ -27,6 +26,8 @@ import sys
 import os
 import gc
 
+# Parse
+import json
 
 # --------------------------------------------------------------------------
 
@@ -755,29 +756,37 @@ class MainWindow(QMainWindow):
             self.dashboard_layout.setSpacing(15)
             self.dashboard_layout.setAlignment(Qt.AlignTop)
 
-            self.dash_cards = []
+            self.dash_cards = [] if not hasattr(self, 'dash_cards') else self.dash_cards
             self.selected_card = None
 
-            for i in range(1,6):
-                card = Card(self.dashboard_container, opaque_element, 200)
-                card.setFixedWidth(675)
-                card.setCursor(Qt.PointingHandCursor)
+            if self.dash_cards == []:
+                for i in range(1,6):
+                    card = Card(self.dashboard_container, opaque_element, 200)
+                    card.setFixedWidth(675)
+                    card.setCursor(Qt.PointingHandCursor)
+
+                    card_wid = QWidget(card)
+                    card_lay = QHBoxLayout(card_wid)
+                    card.label = text(str(i), "white", poppins("Semi bold"), 45, card_wid)
+                    card_lay.addWidget(card.label, alignment=Qt.AlignCenter)
+                    
+                    card.index = i-1
+                    card.dragging = False
+                    card.drag_start_pos = None
+                    card.original_y = 0
+
+                    card.mousePressEvent = lambda event, c=card: self.card_drag_press(event, c)
+                    card.mouseMoveEvent = lambda event, c=card: self.card_drag_move(event, c)
+                    card.mouseReleaseEvent = lambda event, c=card: self.card_drag_release(event, c)
+
+                    card.updatePixmap()
+
+                    setattr(self, f'card{i}', card)
+
+                    self.dash_cards.append(card)
                 
-                card.hold = QTimer(self)
-                card.hold.setSingleShot(True)
-                card.hold.timeout.connect(lambda c=card, idx=i: self.card_select(c,idx))
-
-                card.mousePressEvent = lambda event, c=card: c.hold.start(1000)
-                card.mouseReleaseEvent = lambda event, c=card: c.hold.stop()
-
-                card.updatePixmap()
-
-
-                setattr(self, f'card{i}', card)
-
-                self.dash_cards.append(card)
+                    self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
             
-                self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
 
 
             self.dashboard_container.show()
@@ -788,82 +797,104 @@ class MainWindow(QMainWindow):
             for card in self.dash_cards:
                 if card is not sip.isdeleted(card):
                     card.updatePixmap()
-
-    def move_cards(self, card_a, card_b, height=215, direction="down"):
-        # Pass in 2 cards and card height and will move and swap pos accordingly (slide past each other).
-
-        self.parallel = QParallelAnimationGroup(self)
-
-        card_a_anim = QPropertyAnimation(card_a, b'pos')
-        card_a_anim.setDuration(600)
-
-        if direction=="down": card_a_anim.setEndValue(card_a.pos() + QPoint(0, height)) 
-        else: card_a_anim.setEndValue(card_a.pos() - QPoint(0, height))
-        
-        card_a_anim.setEasingCurve(QEasingCurve.InOutQuad)
-
-        self.parallel.addAnimation(card_a_anim)
-
-        card_b_anim = QPropertyAnimation(card_b, b'pos')
-        card_b_anim.setDuration(600)
-
-        if direction == "down": card_b_anim.setEndValue(card_b.pos() - QPoint(0, height)) 
-        else: card_b_anim.setEndValue(card_b.pos() + QPoint(0, height)) 
-        
-        card_b_anim.setEasingCurve(QEasingCurve.InOutQuad)
-
-        self.parallel.addAnimation(card_b_anim)
-
-        self.parallel.start()
     
-    def card_select(self, card, index):
-        if self.selected_card is not None:
-            prev_card = self.dash_cards[self.selected_card - 1]
-            prev_card.highlight.hide()
+    def card_drag_press(self, event, card):
+        if event.button() == Qt.LeftButton:
+            card.dragging = True
+            card.setCursor(Qt.ClosedHandCursor)
+            card.drag_start_pos = event.globalPos()
+            card.original_y = card.y()
+            card.raise_()
 
-            if hasattr(self, 'move_menu') and self.move_menu is not None and not sip.isdeleted(self.move_menu):
-                self.move_menu.hide()
-                self.move_menu.destroy()
+    def card_drag_move(self, event, card):
+        if not card.dragging:
+            return
+        
+        delta_y = event.globalPos().y() - card.drag_start_pos.y()
+        new_y = card.original_y + delta_y
 
-        self.selected_card = index
-        card.highlight.show()
+        max_y = self.dashboard_container.height() - card.height()
+        new_y = max(0, min(new_y, max_y))
+
+        card.move(card.x(), new_y)
 
         
 
-
-        card.v_center = int(card.y() + (card.height()/2))
-        area = (card.x()+card.width()+30, card.v_center)
+        card_pos = self.dashboardpop.mapFromGlobal(card.mapToGlobal(QPoint(0,0)))
+        card_bottom_in_pop = card_pos.y() + card.height()
         
-        if hasattr(self, 'move_menu') and self.move_menu is not None and not sip.isdeleted(self.move_menu):
-            self.move_menu.deleteLater()
+        scrolling_speed = 10
 
-        self.move_menu = QWidget(self.dashboardpop)
-        self.move_menu.setFixedSize(70, 190)
+        if card_bottom_in_pop > (self.dashboardpop.height() - 40):
+            if self.yv > -620:
+                self.yv -= scrolling_speed
+                if self.yv < -620:
+                    self.yv = -620
+                self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
 
-        self.menu = QVBoxLayout(self.move_menu)
-        self.menu.setContentsMargins(5,5,5,5)
-        self.menu.setAlignment(Qt.AlignCenter)
-        self.menu.setSpacing(30)
+                card.drag_start_pos.setY(card.drag_start_pos.y()+scrolling_speed)
+                card.original_y -= scrolling_speed
 
-        theme = check_theme()
-        color = "white" if theme == 0 else "black"
+        elif card_pos.y() < 40:
+            if self.yv < 0:
+                self.yv += scrolling_speed
+                if self.yv > 0:
+                    self.yv = 0
+                self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
 
-        self.up = hover_svg(f"./Icons/up-direction-{color}.svg", 25, 25)
-        self.menu.addWidget(self.up)
+                card.drag_start_pos.setY(card.drag_start_pos.y()-scrolling_speed)
+                card.original_y += scrolling_speed
 
-        self.cancel = hover_svg(f"./Icons/cancel-{color}.svg", 25, 25)
-        self.cancel.mousePressEvent = lambda event: self.hide(event, card=card) 
-        self.menu.addWidget(self.cancel)
+        current = card.index
+        rowh = card.height()+15
 
-        self.down = hover_svg(f"./Icons/down-direction-{color}.svg", 25, 25)
-        self.menu.addWidget(self.down)
+        if current > 0 and new_y < (current * rowh) - (rowh/2):
+            # Kinda like a neighbor checking
+            nextto = self.dash_cards[current-1]
 
-        self.move_menu_relative = card.v_center - 95
+            self.dash_cards[current], self.dash_cards[current - 1] = nextto, card
+            card.index -= 1
+            nextto.index += 1
 
-        self.move_menu.move(area[0]+35, area[1]-95)
+            self.glide(nextto, nextto.index * rowh + 50)
 
-        self.move_menu.show()
-        self.move_menu.raise_()
+        elif current < len(self.dash_cards) - 1 and new_y > (current * rowh) + (rowh / 2):
+            nextto = self.dash_cards[current + 1]
+            self.dash_cards[current], self.dash_cards[current+1] = nextto, card
+            
+            card.index += 1
+            nextto.index -= 1
+            
+            self.glide(nextto, (nextto.index * rowh) + 50)
+
+    def card_drag_release(self, event, card):
+        if card.dragging:
+            card.dragging = False
+            card.setCursor(Qt.OpenHandCursor)
+
+            rowh = card.height() + 15
+            target_y = (card.index * rowh) + 50
+            self.glide(card, target_y)
+
+            for pos, card in enumerate(self.dash_cards):
+                self.dashboard_layout.removeWidget(card)
+                self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
+
+                if hasattr(card, 'label'):
+                    card.label.setText(str(pos+1))
+            
+            card.updatePixmap()
+    
+    def glide(self, card, target_y):
+        if hasattr(card, 'anim') and card.anim is not None:
+            card.anim.stop()
+        
+        card.anim = QPropertyAnimation(card, b'pos')
+        card.anim.setDuration(250)
+        card.anim.setEndValue(QPoint(card.x(),  int(target_y)))
+        card.anim.setEasingCurve(QEasingCurve.InOutQuad)
+        card.anim.start()
+
 
     def hide(self, event, card):
             card.highlight.hide()
