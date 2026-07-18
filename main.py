@@ -189,8 +189,6 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.inertia)
         self.timer.start(self.frequency)
 
-        
-        
         self.load_fade = QGraphicsOpacityEffect(self.loading)
         self.load_fade.setOpacity(0.0)
         
