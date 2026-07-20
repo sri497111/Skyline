@@ -10,7 +10,7 @@ from PyQt5.QtGui import QPixmap, QPainterPath, QRegion, QFont
 from PyQt5 import sip
 
 # Modules
-from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text
+from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text, WeatherCard
 from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
 from settings import load_settings, update_settings, check_theme
 from system import internet_check
@@ -733,7 +733,45 @@ class MainWindow(QMainWindow):
 
             self.yv = 0
 
+            try:
+                with open('./dashboard.json', 'r') as d:
+                    dash = json.load(d)
+            except:
+                dash = []
+
             def cleanup():
+                sorted_c = sorted(self.dash_cards, key=lambda c: c.index)
+
+                filled = []
+
+                for card in sorted_c:
+                    if hasattr(card, 'location_name') and card.location_name.strip():
+                        filled.append({
+                            "location_name": card.location_name,
+                            "lat": card.lat,
+                            "lon": card.lon,
+                        })
+                
+                while len(filled) < 5:
+                    filled.append({
+                        "location_name": "",   
+                        "lat": 0,
+                        "lon": 0,
+                    })
+                
+                new_dash_data = {}
+                
+                for idx, data in enumerate(filled, start=1):
+                    new_dash_data[f"card{idx}"] = data
+
+                try:
+                    with open('./dashboard.json', 'w') as d:
+                        json.dump(new_dash_data, d)
+                except Exception as e:
+                    print(e)
+                
+                
+
                 self.dashboardpop = None
                 self.dash_cards = []
 
@@ -759,15 +797,16 @@ class MainWindow(QMainWindow):
 
             if self.dash_cards == []:
                 for i in range(1,6):
-                    card = Card(self.dashboard_container, opaque_element, 200)
-                    card.setFixedWidth(675)
-                    card.setCursor(Qt.PointingHandCursor)
+                    card_key = f"card{i}"
+                    card_info = dash.get(card_key, {"location_name": "", "lat": 0, "lon": 0})
 
-                    card_wid = QWidget(card)
-                    card_lay = QHBoxLayout(card_wid)
-                    card.label = text(str(i), "white", poppins("Semi bold"), 45, card_wid)
-                    card_lay.addWidget(card.label, alignment=Qt.AlignCenter)
+                    card = WeatherCard(self.dashboard_container, opaque_element, card_info.get("location_name", ""), card_info.get("lat", 0), card_info.get("lon", 0))
                     
+
+                    card.location_name = card_info.get("location_name", "")
+                    card.lat = card_info.get("lat", 0)
+                    card.lon = card_info.get("lon", 0)
+
                     card.index = i-1
                     card.dragging = False
                     card.drag_start_pos = None
@@ -815,8 +854,6 @@ class MainWindow(QMainWindow):
         new_y = max(0, min(new_y, max_y))
 
         card.move(card.x(), new_y)
-
-        
 
         card_pos = self.dashboardpop.mapFromGlobal(card.mapToGlobal(QPoint(0,0)))
         card_bottom_in_pop = card_pos.y() + card.height()
@@ -874,12 +911,14 @@ class MainWindow(QMainWindow):
             target_y = (card.index * rowh) + 50
             self.glide(card, target_y)
 
+    
             for pos, card in enumerate(self.dash_cards):
                 self.dashboard_layout.removeWidget(card)
                 self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
 
                 if hasattr(card, 'label'):
-                    card.label.setText(str(pos+1))
+                    text_str = card.location_name if card.location_name else "Location"
+                    card.label.setText(text_str)
             
             card.updatePixmap()
     

@@ -534,3 +534,60 @@ def mouse_release_dim(obj, callback=None):
         obj._release_anim.start()
     
     return wrapper
+
+class WeatherCard(Card):
+    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=0, hi=0, low=0):
+        super().__init__(parent, background, 200)
+
+        self.setFixedWidth(600)
+        self.setCursor(Qt.PointingHandCursor)
+
+        self.location_name = location_name
+        self.lat = lat
+        self.lon = lon
+        self.current_condition = current_condition
+        self.current_temp = current_temp
+        self.hi = hi
+        self.low = low
+
+        self.weather_layout = QHBoxLayout(self)
+
+        self.weather_layout.setContentsMargins(50,25,50,25)
+
+        icon_and_name = QWidget()
+        icon_and_name_layout = QVBoxLayout(icon_and_name)
+
+        self.location_name = text(location_name, "white", poppins("Semi bold"), 20, self)
+        self.location_name.setAlignment(Qt.AlignLeft)
+        
+        icon_and_name_layout.addWidget(self.location_name)
+
+        icon_and_name_layout.addStretch(1)
+
+        icon_and_condtion = QWidget()
+        icon_and_condtion_layout = QHBoxLayout(icon_and_condtion)
+        icon_and_condtion_layout.setContentsMargins(0,0,0,0)
+        
+        self.condition_icon = svg("./Icons/clear-day.svg", 64, 64)
+        icon_and_condtion_layout.addWidget(self.condition_icon, alignment=Qt.AlignLeft)
+
+        self.condition = text(str(self.current_condition), "white", poppins("semi bold"), 20, self)
+        self.condition.setAlignment(Qt.AlignCenter)
+
+        icon_and_condtion_layout.addWidget(self.condition, alignment=Qt.AlignLeft)
+
+        icon_and_name_layout.addWidget(icon_and_condtion, alignment=Qt.AlignLeft)
+        
+        
+
+        
+
+        self.weather_layout.addWidget(icon_and_name, alignment=Qt.AlignLeft)
+        
+        self.location = location_name
+        self.lat = lat
+        self.lon = lon
+    
+    def updatePixmap(self):
+        if hasattr(self, 'weather_card'):
+            self.weather_card.updatePixmap()
