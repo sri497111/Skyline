@@ -536,7 +536,7 @@ def mouse_release_dim(obj, callback=None):
     return wrapper
 
 class WeatherCard(Card):
-    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=0, hi=0, low=0):
+    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=72, hi=67, low=99):
         super().__init__(parent, background, 200)
 
         self.setFixedWidth(600)
@@ -551,43 +551,49 @@ class WeatherCard(Card):
         self.low = low
 
         self.weather_layout = QHBoxLayout(self)
-
         self.weather_layout.setContentsMargins(50,25,50,25)
+        self.weather_layout.setSpacing(0)
+
 
         icon_and_name = QWidget()
         icon_and_name_layout = QVBoxLayout(icon_and_name)
+        icon_and_name_layout.setContentsMargins(0,0,0,0)
+        icon_and_name_layout.setSpacing(0)
 
         self.location_name = text(location_name, "white", poppins("Semi bold"), 20, self)
-        self.location_name.setAlignment(Qt.AlignLeft)
+        self.location_name.setStyleSheet(self.location_name.styleSheet() + "; margin-top: 0px; padding-top: 0px;")  
         
-        icon_and_name_layout.addWidget(self.location_name)
+        icon_and_name_layout.addWidget(self.location_name, alignment=Qt.AlignTop | Qt.AlignLeft)
+
+        self.condition = text(str(self.current_condition), "white", poppins("semi bold"), 15, self)
+        self.condition.setStyleSheet(self.condition.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
+        icon_and_name_layout.addWidget(self.condition, alignment=Qt.AlignTop | Qt.AlignLeft)
 
         icon_and_name_layout.addStretch(1)
 
-        icon_and_condtion = QWidget()
-        icon_and_condtion_layout = QHBoxLayout(icon_and_condtion)
-        icon_and_condtion_layout.setContentsMargins(0,0,0,0)
-        
-        self.condition_icon = svg("./Icons/clear-day.svg", 64, 64)
-        icon_and_condtion_layout.addWidget(self.condition_icon, alignment=Qt.AlignLeft)
-
-        self.condition = text(str(self.current_condition), "white", poppins("semi bold"), 20, self)
-        self.condition.setAlignment(Qt.AlignCenter)
-
-        icon_and_condtion_layout.addWidget(self.condition, alignment=Qt.AlignLeft)
-
-        icon_and_name_layout.addWidget(icon_and_condtion, alignment=Qt.AlignLeft)
-        
-        
+        self.weather_layout.addWidget(icon_and_name, alignment=Qt.AlignTop)
+        self.weather_layout.addStretch(1)
 
         
+        temp = QWidget()
+        temp_layout = QVBoxLayout(temp)
+        temp_layout.setContentsMargins(0,0,0,0)
+        temp_layout.setSpacing(0)
 
-        self.weather_layout.addWidget(icon_and_name, alignment=Qt.AlignLeft)
+        temp_string = f'{str(self.current_temp)}\u00b0'
+        current_temp = text(temp_string, "white", poppins("semi bold"), 72, self)
+        current_temp.setStyleSheet(current_temp.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
+        temp_layout.addWidget(current_temp, alignment=Qt.AlignTop | Qt.AlignCenter)
+
+        high_low = f"H: {str(self.hi)}\u00b0 / L: {str(self.low)}\u00b0"
+        high_low_string = text(high_low, "white", poppins("semi bold"), 15, self)
+        high_low_string.setStyleSheet(high_low_string.styleSheet() + "; margin-top: 0px; padding-right: 10px;")
+        temp_layout.addWidget(high_low_string, alignment=Qt.AlignTop | Qt.AlignCenter)
         
-        self.location = location_name
-        self.lat = lat
-        self.lon = lon
-    
+        temp_layout.addStretch(1)
+
+        self.weather_layout.addWidget(temp)
+
     def updatePixmap(self):
         if hasattr(self, 'weather_card'):
             self.weather_card.updatePixmap()

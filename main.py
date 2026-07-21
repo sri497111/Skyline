@@ -740,6 +740,9 @@ class MainWindow(QMainWindow):
                 dash = []
 
             def cleanup():
+                if sip.isdeleted(self):
+                    return
+
                 sorted_c = sorted(self.dash_cards, key=lambda c: c.index)
 
                 filled = []
@@ -752,13 +755,6 @@ class MainWindow(QMainWindow):
                             "lon": card.lon,
                         })
                 
-                while len(filled) < 5:
-                    filled.append({
-                        "location_name": "",   
-                        "lat": 0,
-                        "lon": 0,
-                    })
-                
                 new_dash_data = {}
                 
                 for idx, data in enumerate(filled, start=1):
@@ -769,8 +765,6 @@ class MainWindow(QMainWindow):
                         json.dump(new_dash_data, d)
                 except Exception as e:
                     print(e)
-                
-                
 
                 self.dashboardpop = None
                 self.dash_cards = []
@@ -795,13 +789,20 @@ class MainWindow(QMainWindow):
             self.dash_cards = [] if not hasattr(self, 'dash_cards') else self.dash_cards
             self.selected_card = None
 
-            if self.dash_cards == []:
+            if not self.dash_cards:
+                active_count = sum(1 for i in range(1,6) if isinstance(dash.get(f"card{i}"), dict) and dash.get(f"card{i}", {}).get("location_name", "").strip())
+                
+                card_index = 0
+
                 for i in range(1,6):
                     card_key = f"card{i}"
-                    card_info = dash.get(card_key, {"location_name": "", "lat": 0, "lon": 0})
+                    card_info = dash.get(card_key, {}) if isinstance(dash.get(card_key), dict) else {}
+                    loc_name = dash.get(card_key, {}).get("location_name", "").strip() if isinstance(dash.get(card_key), dict) else ""
+
+                    if not loc_name:
+                        continue
 
                     card = WeatherCard(self.dashboard_container, opaque_element, card_info.get("location_name", ""), card_info.get("lat", 0), card_info.get("lon", 0))
-                    
 
                     card.location_name = card_info.get("location_name", "")
                     card.lat = card_info.get("lat", 0)
@@ -823,17 +824,39 @@ class MainWindow(QMainWindow):
                     self.dash_cards.append(card)
                 
                     self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
-            
 
+                    if card:
+                        self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
+
+                if active_count < 5:
+                    add = Card(self.dashboard_container, opaque_element, 200, raise_dark=False)
+                    self.add_card = add
+                    add.setFixedWidth(600)
+                    add.setCursor(Qt.PointingHandCursor)
+
+                    add_layout = QVBoxLayout(add)
+                    add_layout.setContentsMargins(0,0,0,0)
+                    add_layout.setSpacing(0)
+
+                    add_icon = svg("./Icons/add-circle-dark.svg" if check_theme() == 0 else "./Icons/add-circle-light.svg", 100, 100)
+                    add_icon.setCursor(Qt.PointingHandCursor)
+                    #add_icon.mousePressEvent = mouse_press_dim(add_icon)
+                    #add_icon.mouseReleaseEvent = mouse_release_dim(add_icon, self.add_card)
+                    add_layout.addWidget(add_icon, alignment=Qt.AlignCenter)
+
+                    add.updatePixmap()
+                    
+                    self.dashboard_layout.addWidget(add, alignment=Qt.AlignCenter)
 
             self.dashboard_container.show()
-
-            #QTimer.singleShot(100, lambda: self.move_cards(self.dash_cards[0], self.dash_cards[1]))
 
         else:
             for card in self.dash_cards:
                 if card is not sip.isdeleted(card):
                     card.updatePixmap()
+
+    def add_card(self, event):
+        pass
     
     def card_drag_press(self, event, card):
         if event.button() == Qt.LeftButton:
@@ -919,6 +942,10 @@ class MainWindow(QMainWindow):
                 if hasattr(card, 'label'):
                     text_str = card.location_name if card.location_name else "Location"
                     card.label.setText(text_str)
+
+            if hasattr(self, 'add_card') and self.add_card and not sip.isdeleted(self.add_card):
+                self.dashboard_layout.removeWidget(self.add_card)
+                self.dashboard_layout.addWidget(self.add_card, alignment=Qt.AlignCenter)
             
             card.updatePixmap()
     

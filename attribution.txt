@@ -88,3 +88,16 @@ AUTHOR: Mike Hunter
 From svgrepo.com (https://www.svgrepo.com/svg/410395/cancel)
 
 ---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
+Add Icon -
+
+NAME - Add Circle SVG Vector
+COLLECTION: Solar Bold Duotone Icons
+LICENSE: CC Attribution License
+AUTHOR: Solar Icons
+
+From svgrepo.com (https://www.svgrepo.com/svg/528831/add-circle)
+
+---------------------------------------------------------------------------------
