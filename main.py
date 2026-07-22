@@ -71,6 +71,8 @@ class MainWindow(QMainWindow):
         self.popup_active = False
 
         self.initial_place = True
+
+        self.add_coords = None
         
         # Init Weather
         self.location = (29.4243, -98.4911)
@@ -338,7 +340,9 @@ class MainWindow(QMainWindow):
         self.menu_layout.addWidget(settings)
 
     
-    def search(self, event):
+    def search(self, event, change=True):
+        self.search_change_mode = change
+
 
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
@@ -414,16 +418,25 @@ class MainWindow(QMainWindow):
             self.searchpop.popup_layout.addWidget(self.search_bar, alignment=Qt.AlignCenter)
             self.searchpop.popup_layout.addWidget(self.suggestions)
 
-            self.execute_search()
+            if change:
+                self.execute_search()
+            else:
+                self.execute_search(change=False)
 
             QApplication.processEvents()
 
             self.search_bar.updatePixmap()
             self.suggestions.updatePixmap()
 
-    def execute_search(self):
+    def execute_search(self, change=None):
+        if change is None:
+            change = getattr(self, 'search_change_mode', True)
+        
+
         search_query = self.location_search.text().strip()
         self.current_query = search_query
+
+        change_type = "regular" if not change else "change"
 
         while self.suggestions_layout.count():
             child = self.suggestions_layout.takeAt(0)
@@ -507,10 +520,23 @@ class MainWindow(QMainWindow):
                     coords = [lat, lon]
                 else:
                     break
-                    
-                
+
                 btn = self.location_hover_button(string)
-                btn.mousePressEvent = lambda event, c=coords: self.change_location(event, c)
+                if change_type == "change":
+                    btn.mousePressEvent = lambda event, c=coords: self.change_location(event, c)
+                else:
+                    def select_location(event, c=coords):
+                        self.add_coords = c
+
+                        if hasattr(self, 'searchpop') and self.searchpop:
+                            self.searchpop.exit_popup()
+
+                        self.add_card(event)
+                    
+                    
+
+                    btn.mousePressEvent = lambda event, c=coords: select_location(event, c)
+
                 self.suggestions_layout.setAlignment(Qt.AlignTop)
                 self.suggestions_layout.addWidget(btn)
 
@@ -736,6 +762,7 @@ class MainWindow(QMainWindow):
             try:
                 with open('./dashboard.json', 'r') as d:
                     dash = json.load(d)
+                    self.dash_data = dash
             except:
                 dash = []
 
@@ -830,7 +857,7 @@ class MainWindow(QMainWindow):
 
                 if active_count < 5:
                     add = Card(self.dashboard_container, opaque_element, 200, raise_dark=False)
-                    self.add_card = add
+                    self.add_card_btn = add
                     add.setFixedWidth(600)
                     add.setCursor(Qt.PointingHandCursor)
 
@@ -840,10 +867,8 @@ class MainWindow(QMainWindow):
 
                     add_icon = svg("./Icons/add-circle-dark.svg" if check_theme() == 0 else "./Icons/add-circle-light.svg", 100, 100)
                     add_icon.setCursor(Qt.PointingHandCursor)
-                    #add_icon.mousePressEvent = mouse_press_dim(add_icon)
-                    #add_icon.mouseReleaseEvent = mouse_release_dim(add_icon, self.add_card)
+                    add_icon.mousePressEvent = lambda event: self.search(event, change=False)
                     add_layout.addWidget(add_icon, alignment=Qt.AlignCenter)
-
                     add.updatePixmap()
                     
                     self.dashboard_layout.addWidget(add, alignment=Qt.AlignCenter)
@@ -854,10 +879,84 @@ class MainWindow(QMainWindow):
             for card in self.dash_cards:
                 if card is not sip.isdeleted(card):
                     card.updatePixmap()
+    def save_dashboard(self):
+        self.dash_cards.sort(key=lambda c: c.index)
+
+        new_dash_data = {}
+        for idx, data in enumerate(self.dash_cards, start=1):
+            loc_attr = getattr(data, 'location_name', " ")
+
+            if isinstance(loc_attr, QLabel):
+                loc_name = loc_attr.text()
+            else:
+                loc_name = str(loc_attr)
+            
+            lat = float(getattr(data, 'lat', 0.0))
+            lon = float(getattr(data, 'lon', 0.0))
+            
+            new_dash_data[f"card{idx}"] = {
+                "location_name": loc_name,
+                "lat": data.lat,
+                "lon": data.lon,
+            }
+
+        self.dash_data = new_dash_data
+
+        try:
+            json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.json")
+        except:
+            json_path = "./dashboard.json"
+    
+        try:
+            with open(json_path, 'w') as d:
+                json.dump(self.dash_data, d, indent=4)
+        except Exception as e:
+            print("Error dumping data")
+            print(e)
 
     def add_card(self, event):
-        pass
-    
+        if hasattr(self, 'add_coords') and self.add_coords:
+            lat, lon = self.add_coords[0], self.add_coords[1]
+            
+            count = len(self.dash_data)
+
+            if count > 6:
+                return
+            
+            opaque_element = QPixmap("./Backgrounds/dark-element.png") if check_theme() == 0 else QPixmap("./Backgrounds/light-element.png")
+
+            if hasattr(self, 'results') and self.results:
+                location = self.results[0][0]
+
+            card = WeatherCard(self.dashboard_container, opaque_element, location, lat, lon)
+            card.index = count
+            card.dragging = False
+            card.lat = lat
+            card.lon = lon
+            card.index = count
+            card.drag_start_pos = None
+            card.original_y = 0
+
+            card.mousePressEvent = lambda event, c=card: self.card_drag_press(event, c)
+            card.mouseMoveEvent = lambda event, c=card: self.card_drag_move(event, c)
+            card.mouseReleaseEvent = lambda event, c=card: self.card_drag_release(event, c)
+
+            card.updatePixmap()
+
+            self.dash_cards.append(card)
+
+            if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+                self.dashboard_layout.removeWidget(self.add_card_btn)
+            
+            self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
+
+            if len(self.dash_cards) < 5 and hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+                self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
+            elif len(self.dash_cards) >= 5 and hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+                self.add_card_btn.hide()
+
+            self.save_dashboard()
+
     def card_drag_press(self, event, card):
         if event.button() == Qt.LeftButton:
             card.dragging = True
@@ -943,11 +1042,12 @@ class MainWindow(QMainWindow):
                     text_str = card.location_name if card.location_name else "Location"
                     card.label.setText(text_str)
 
-            if hasattr(self, 'add_card') and self.add_card and not sip.isdeleted(self.add_card):
-                self.dashboard_layout.removeWidget(self.add_card)
-                self.dashboard_layout.addWidget(self.add_card, alignment=Qt.AlignCenter)
+            if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+                self.dashboard_layout.removeWidget(self.add_card_btn)
+                self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
             
             card.updatePixmap()
+            self.save_dashboard()
     
     def glide(self, card, target_y):
         if hasattr(card, 'anim') and card.anim is not None:

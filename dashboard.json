@@ -1,1 +1,27 @@
-{"card1": {"location_name": "Yosemite", "lat": 37.865, "lon": -119.535}, "card2": {"location_name": "Redwood Forest", "lat": 41.213, "lon": -124.004}, "card3": {"location_name": "Big Sur", "lat": 36.299, "lon": -121.873}, "card4": {"location_name": "San Francisco", "lat": 37.733, "lon": -122.44}}
+{
+    "card1": {
+        "location_name": "Redwood Forest",
+        "lat": 41.213,
+        "lon": -124.004
+    },
+    "card2": {
+        "location_name": "Yosemite",
+        "lat": 37.865,
+        "lon": -119.535
+    },
+    "card3": {
+        "location_name": "Big Sur",
+        "lat": 36.299,
+        "lon": -121.873
+    },
+    "card4": {
+        "location_name": "Edison",
+        "lat": 40.51872,
+        "lon": -74.4121
+    },
+    "card5": {
+        "location_name": "Mojave",
+        "lat": 35.05247,
+        "lon": -118.17396
+    }
+}
