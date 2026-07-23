@@ -753,6 +753,8 @@ class MainWindow(QMainWindow):
             self.dashboardpop.destroyed.connect(lambda: setattr(self, 'dashboardpop', None))
             self.dashboardpop.installEventFilter(self)
 
+            self.selected = []
+
             theme = check_theme()
             if theme == 0: opaque_element=QPixmap("./Backgrounds/dark-element.png")
             else: opaque_element=QPixmap("./Backgrounds/light-element.png")
@@ -775,12 +777,22 @@ class MainWindow(QMainWindow):
                 filled = []
 
                 for card in sorted_c:
-                    if hasattr(card, 'location_name') and card.location_name.strip():
-                        filled.append({
-                            "location_name": card.location_name,
-                            "lat": card.lat,
-                            "lon": card.lon,
-                        })
+                    if hasattr(card, 'location_name') and isinstance(card.location_name, QLabel):
+                        location_text = card.location_name.text()
+                        if location_text.strip() and location_text:
+                            filled.append({
+                                "location_name": card.location_name,
+                                "lat": card.lat,
+                                "lon": card.lon,
+                            })
+
+                    elif hasattr(card, 'location_name') and isinstance(card.location_name, str):
+                        if card.location_name.strip() and card.location_name:
+                            filled.append({
+                                "location_name": card.location_name,
+                                "lat": card.lat,
+                                "lon": card.lon,
+                            })
                 
                 new_dash_data = {}
                 
@@ -815,17 +827,22 @@ class MainWindow(QMainWindow):
 
             self.dash_cards = [] if not hasattr(self, 'dash_cards') else self.dash_cards
             self.selected_card = None
-
+            
+            
             if not self.dash_cards:
-                active_count = sum(1 for i in range(1,6) if isinstance(dash.get(f"card{i}"), dict) and dash.get(f"card{i}", {}).get("location_name", "").strip())
-                
-                card_index = 0
+                cards_to_load = []
+                if isinstance(dash, dict):
+                    for i in range(1,6):
+                        c_info = dash.get(f"card{i}")
+                        if isinstance(c_info, dict) and str(c_info.get("location_name", "")).strip():
+                            cards_to_load.append(c_info)
+                elif isinstance(dash, list):
+                    for c_info in dash:
+                        if isinstance(c_info, dict) and str(c_info.get("location_name", "")).strip():
+                            cards_to_load.append(c_info)
 
-                for i in range(1,6):
-                    card_key = f"card{i}"
-                    card_info = dash.get(card_key, {}) if isinstance(dash.get(card_key), dict) else {}
-                    loc_name = dash.get(card_key, {}).get("location_name", "").strip() if isinstance(dash.get(card_key), dict) else ""
-
+                for card_info in cards_to_load:
+                    loc_name = str(card_info.get("location_name", "")).strip()
                     if not loc_name:
                         continue
 
@@ -854,6 +871,15 @@ class MainWindow(QMainWindow):
 
                     if card:
                         self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
+
+                if hasattr(self, 'dash_cards') and self.dash_cards:
+                    active_count = len(self.dash_cards)
+                elif isinstance(dash, list):
+                    active_count = sum(1 for c in dash if isinstance(c, dict) and str(c.get("location_name", "")).strip())
+                elif isinstance(dash, dict):
+                    active_count = sum(1 for i in range(1,6) if isinstance(dash.get(f"card{i}"), dict) and str(dash.get(f"card{i}").get("location_name", "")).strip())  
+                else:
+                    active_count = 0
 
                 if active_count < 5:
                     add = Card(self.dashboard_container, opaque_element, 200, raise_dark=False)
@@ -957,97 +983,216 @@ class MainWindow(QMainWindow):
 
             self.save_dashboard()
 
+    def check_add_btn(self):
+        if hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
+            if len(self.dash_cards) < 5:
+                self.add_card_btn.show()
+                self.add_card_btn.raise_()
+            else:
+                self.add_card_btn.hide()
+
+    def rebuild_dash(self):
+        for i in reversed(range(self.dashboard_layout.count())):
+            item = self.dashboard_layout.itemAt(i)
+            if item.widget():
+                self.dashboard_layout.removeWidget(item.widget())
+        
+        for idx, card in enumerate(self.dash_cards):
+            card.index = idx
+            self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
+
+        if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+            self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
+
+        self.check_add_btn()
+
     def card_drag_press(self, event, card):
         if event.button() == Qt.LeftButton:
             card.dragging = True
-            card.setCursor(Qt.ClosedHandCursor)
             card.drag_start_pos = event.globalPos()
             card.original_y = card.y()
+            card.original_x = card.x()
+            card.swipe = False
+            card.vertical_swipe = False
+
             card.raise_()
+            card.setCursor(Qt.ClosedHandCursor)
 
     def card_drag_move(self, event, card):
+        if not card.dragging or not card.drag_start_pos:
+            return
+        
+        delta = event.globalPos() - card.drag_start_pos
+        dx = delta.x()
+        dy = delta.y()
+
+        
+        if not getattr(card, 'swipe', False) and not getattr(card, 'vertical_swipe', False):
+            if abs(dx) > 10 or abs(dy) > 10:
+                if abs(dx) > abs(dy) * 1.2 and dx > 0:
+                    card.swipe = True
+                else:
+                    card.vertical_swipe = True
+                    
+        if getattr(card, 'swipe', False):
+            if card.parent() != self:
+                window_position = self.mapFromGlobal(card.mapToGlobal(QPoint(0,0)))
+                
+                card.placeholder = QWidget()
+                card.placeholder.setFixedSize(card.width(), card.height())
+                card.placeholder.setStyleSheet("background: transparent;")
+                self.dashboard_layout.insertWidget(self.dashboard_layout.indexOf(card), card.placeholder, alignment=Qt.AlignCenter)
+                
+                card.setParent(self)
+                card.move(window_position)
+                card.show()
+                card.raise_()
+                card.drag_start_x = window_position.x()
+
+            original_x = getattr(card, 'original_x', 0)
+            new_x = max(original_x, original_x+dx)
+            card.move(int(new_x), card.original_y)
+            return
+        
+
+        if getattr(card, 'vertical_swipe', False):
+            card_pos = card.mapTo(self.dashboardpop, QPoint(0,0))
+            new_y = card.original_y + dy
+            card.move(card.x(), new_y)
+            
+            card_bottom_in_pop = card_pos.y() + card.height()
+            scrolling_speed = 10
+
+            if card_bottom_in_pop > (self.dashboardpop.height() - 40):
+                if self.yv > -620:
+                    self.yv -= scrolling_speed
+                    if self.yv < -620:
+                        self.yv = -620
+                    self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
+
+                    card.drag_start_pos.setY(card.drag_start_pos.y()+scrolling_speed)
+                    card.original_y -= scrolling_speed
+
+            elif card_pos.y() < 40:
+                if self.yv < 0:
+                    self.yv += scrolling_speed
+                    if self.yv > 0:
+                        self.yv = 0
+                    self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
+
+                    card.drag_start_pos.setY(card.drag_start_pos.y()-scrolling_speed)
+                    card.original_y += scrolling_speed
+
+            if not hasattr(card, 'index') or card in self.dash_cards:
+                return
+
+
+            current = self.dash_cards.index(card)
+            card.index = current
+            rowh = card.height()+15
+
+            if current > 0 and new_y < (current * rowh) - (rowh/2):
+                # Kinda like a neighbor checking
+                nextto = self.dash_cards[current-1]
+
+                self.dash_cards[current], self.dash_cards[current - 1] = nextto, card
+                card.index -= 1
+                nextto.index += 1
+
+                self.glide(nextto, nextto.index * rowh + 50)
+
+            elif current < len(self.dash_cards) - 1 and new_y > (current * rowh) + (rowh / 2):
+                nextto = self.dash_cards[current + 1]
+                self.dash_cards[current], self.dash_cards[current+1] = nextto, card
+                
+                card.index += 1
+                nextto.index -= 1
+                
+                self.glide(nextto, (nextto.index * rowh) + 50)
+
+    def card_drag_release(self, event, card):
         if not card.dragging:
             return
         
-        delta_y = event.globalPos().y() - card.drag_start_pos.y()
-        new_y = card.original_y + delta_y
+        card.dragging = False
+        card.setCursor(Qt.OpenHandCursor)
 
-        max_y = self.dashboard_container.height() - card.height()
-        new_y = max(0, min(new_y, max_y))
+        if getattr(card, 'swipe', False):
+            card.swipe = False
+            delta_x = card.x() - getattr(card, 'original_x', 0)
 
-        card.move(card.x(), new_y)
+            if delta_x > 140:
+                self.dismiss_card(card)
+            else:
+                if hasattr(card, 'placeholder') and card.placeholder:
+                    self.dashboard_layout.removeWidget(card.placeholder)
+                    card.placeholder.deleteLater()
+                    card.placeholder = None
 
-        card_pos = self.dashboardpop.mapFromGlobal(card.mapToGlobal(QPoint(0,0)))
-        card_bottom_in_pop = card_pos.y() + card.height()
-        
-        scrolling_speed = 10
+                target_y = (card.index * (card.height()+15)) + 50
+                card.setParent(self.dashboard_container)
+                card.show()
+                card.move(getattr(card, 'original_x', 0), target_y)
+                self.rebuild_dash()
+            return
 
-        if card_bottom_in_pop > (self.dashboardpop.height() - 40):
-            if self.yv > -620:
-                self.yv -= scrolling_speed
-                if self.yv < -620:
-                    self.yv = -620
-                self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
+        card.vertical_swipe = False
 
-                card.drag_start_pos.setY(card.drag_start_pos.y()+scrolling_speed)
-                card.original_y -= scrolling_speed
+        self.rebuild_dash()
 
-        elif card_pos.y() < 40:
+        rowh = card.height() + 15
+        target_y = (card.index * rowh) + 50
+        self.glide(card, target_y)
+
+        card.updatePixmap()
+        self.save_dashboard()
+
+
+
+    def dismiss_card(self, card):
+        init_pos = card.pos()
+
+        end_x = self.width()+100
+        end_pos = QPoint(end_x, init_pos.y())
+
+        card.anim = QPropertyAnimation(card, b'pos')
+        card.anim.setDuration(250)
+        card.anim.setStartValue(init_pos)
+        card.anim.setEndValue(end_pos)
+        card.anim.setEasingCurve(QEasingCurve.InOutQuad)
+
+        def slide_finished():
             if self.yv < 0:
-                self.yv += scrolling_speed
-                if self.yv > 0:
-                    self.yv = 0
+                self.yv = min(0, self.yv+215)
                 self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
 
-                card.drag_start_pos.setY(card.drag_start_pos.y()-scrolling_speed)
-                card.original_y += scrolling_speed
-
-        current = card.index
-        rowh = card.height()+15
-
-        if current > 0 and new_y < (current * rowh) - (rowh/2):
-            # Kinda like a neighbor checking
-            nextto = self.dash_cards[current-1]
-
-            self.dash_cards[current], self.dash_cards[current - 1] = nextto, card
-            card.index -= 1
-            nextto.index += 1
-
-            self.glide(nextto, nextto.index * rowh + 50)
-
-        elif current < len(self.dash_cards) - 1 and new_y > (current * rowh) + (rowh / 2):
-            nextto = self.dash_cards[current + 1]
-            self.dash_cards[current], self.dash_cards[current+1] = nextto, card
+            if card in self.dash_cards:
+                self.dash_cards.remove(card)
             
-            card.index += 1
-            nextto.index -= 1
+            if hasattr(card, 'placeholder') and card.placeholder:
+                self.dashboard_layout.removeWidget(card.placeholder)
+                card.placeholder.deleteLater()
+                card.placeholder = None
             
-            self.glide(nextto, (nextto.index * rowh) + 50)
+            card.deleteLater()
 
-    def card_drag_release(self, event, card):
-        if card.dragging:
-            card.dragging = False
-            card.setCursor(Qt.OpenHandCursor)
+            rowh = 215
 
-            rowh = card.height() + 15
-            target_y = (card.index * rowh) + 50
-            self.glide(card, target_y)
-
-    
-            for pos, card in enumerate(self.dash_cards):
-                self.dashboard_layout.removeWidget(card)
-                self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
-
-                if hasattr(card, 'label'):
-                    text_str = card.location_name if card.location_name else "Location"
-                    card.label.setText(text_str)
+            for idx, c in enumerate(self.dash_cards):
+                c.index = idx
+                target_y = (idx * rowh) + 50
+                self.glide(c, target_y)
 
             if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
-                self.dashboard_layout.removeWidget(self.add_card_btn)
-                self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
-            
-            card.updatePixmap()
+                add_btn_target = (len(self.dash_cards) * rowh) + 50
+                self.glide(self.add_card_btn, add_btn_target)
+
+            QTimer.singleShot(225, self.check_add_btn)
             self.save_dashboard()
+
+        card.anim.finished.connect(slide_finished)
+        card.anim.start()
+
     
     def glide(self, card, target_y):
         if hasattr(card, 'anim') and card.anim is not None:

@@ -542,6 +542,8 @@ class WeatherCard(Card):
         self.setFixedWidth(600)
         self.setCursor(Qt.PointingHandCursor)
 
+        self.batch_select = False
+
         self.location_name = location_name
         self.lat = lat
         self.lon = lon
@@ -597,3 +599,6 @@ class WeatherCard(Card):
     def updatePixmap(self):
         if hasattr(self, 'weather_card'):
             self.weather_card.updatePixmap()
+
+    
+
