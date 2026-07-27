@@ -25,8 +25,7 @@ class Weather:
         print(f"Coords being sent to Vercel - ({self.lat}, {self.lon})")
 
         self.url = f"https://skyline-backend-xcrg.vercel.app/api/weather?lat={self.lat}&lon={self.lon}"
-        self.response = requests.get(self.url)
-        
+        self.response = requests.get(self.url)        
 
         try:
             self.data = self.response.json()
@@ -41,7 +40,49 @@ class Weather:
         return self.data['forecast']
     def retrieve_uv(self):
         return self.data['uv']['now']['uv_index']
+    
+class DashboardWeather:
+    def __init__(self, loc1=[], loc2=[], loc3=[], loc4=[], loc5=[]):
+        self.loc1 = loc1
+        self.loc2 = loc2
+        self.loc3 = loc3
+        self.loc4 = loc4
+        self.loc5 = loc5
+        
+        self.url = f"https://skyline-dashboard-backend.vercel.app/?lat1={self.loc1[0]}&lon1={self.loc1[1]}&lat2={self.loc2[0]}&lon2={self.loc2[1]}&lat3={self.loc3[0]}&lon3={self.loc3[1]}&lat4={self.loc4[0]}&lon4={self.loc4[1]}&lat5={self.loc5[0]}&lon5={self.loc5[1]}"
+        print(self.url)
+        self.response = requests.get(self.url)
+        
+        try:
+            self.data = self.response.json()
+        except:
+            status = self.response.status_code
+            snippet = self.response.text[:200].replace('\n', ' ')
+            raise Exception(f"Vercel Error! Status code {status}\n Response snip - {snippet}")
+        
+    def retrieve_dashboard_weather(self):
+        return self.data
+    
+class DashboardWeatherWait(QThread):
+    data = pyqtSignal(dict)
+    error = pyqtSignal(str)
 
+    def __init__(self, loc1=[], loc2=[], loc3=[], loc4=[], loc5=[]):
+        super().__init__()
+        self.loc1 = loc1
+        self.loc2 = loc2
+        self.loc3 = loc3
+        self.loc4 = loc4
+        self.loc5 = loc5
+    def run(self):
+        try:
+            weather = DashboardWeather(self.loc1, self.loc2, self.loc3, self.loc4, self.loc5)
+            
+            weather_data = weather.retrieve_dashboard_weather()
+            self.data.emit(weather_data)
+            
+        except Exception as e:
+            self.error.emit(str(e))
 
 class WeatherWait(QThread):
     data = pyqtSignal(dict)

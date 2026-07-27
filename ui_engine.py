@@ -567,9 +567,9 @@ class WeatherCard(Card):
         
         icon_and_name_layout.addWidget(self.location_name, alignment=Qt.AlignTop | Qt.AlignLeft)
 
-        self.condition = text(str(self.current_condition), "white", poppins("semi bold"), 15, self)
-        self.condition.setStyleSheet(self.condition.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
-        icon_and_name_layout.addWidget(self.condition, alignment=Qt.AlignTop | Qt.AlignLeft)
+        self.condition_label = text(str(self.current_condition), "white", poppins("semi bold"), 15, self)
+        self.condition_label.setStyleSheet(self.condition_label.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
+        icon_and_name_layout.addWidget(self.condition_label, alignment=Qt.AlignTop | Qt.AlignLeft)
 
         icon_and_name_layout.addStretch(1)
 
@@ -583,14 +583,14 @@ class WeatherCard(Card):
         temp_layout.setSpacing(0)
 
         temp_string = f'{str(self.current_temp)}\u00b0'
-        current_temp = text(temp_string, "white", poppins("semi bold"), 72, self)
-        current_temp.setStyleSheet(current_temp.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
-        temp_layout.addWidget(current_temp, alignment=Qt.AlignTop | Qt.AlignCenter)
+        self.temp_label = text(temp_string, "white", poppins("semi bold"), 72, self)
+        self.temp_label.setStyleSheet(self.temp_label.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
+        temp_layout.addWidget(self.temp_label, alignment=Qt.AlignTop | Qt.AlignCenter)
 
         high_low = f"H: {str(self.hi)}\u00b0 / L: {str(self.low)}\u00b0"
-        high_low_string = text(high_low, "white", poppins("semi bold"), 15, self)
-        high_low_string.setStyleSheet(high_low_string.styleSheet() + "; margin-top: 0px; padding-right: 10px;")
-        temp_layout.addWidget(high_low_string, alignment=Qt.AlignTop | Qt.AlignCenter)
+        self.hi_lo_label = text(high_low, "white", poppins("semi bold"), 15, self)
+        self.hi_lo_label.setStyleSheet(self.hi_lo_label.styleSheet() + "; margin-top: 0px; padding-right: 10px;")
+        temp_layout.addWidget(self.hi_lo_label, alignment=Qt.AlignTop | Qt.AlignCenter)
         
         temp_layout.addStretch(1)
 
@@ -599,6 +599,3 @@ class WeatherCard(Card):
     def updatePixmap(self):
         if hasattr(self, 'weather_card'):
             self.weather_card.updatePixmap()
-
-    
-

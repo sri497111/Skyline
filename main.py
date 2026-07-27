@@ -11,7 +11,7 @@ from PyQt5 import sip
 
 # Modules
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text, WeatherCard
-from retrieve import Weather, WeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
+from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
 from settings import load_settings, update_settings, check_theme
 from system import internet_check
 from location import *
@@ -76,7 +76,9 @@ class MainWindow(QMainWindow):
         
         # Init Weather
         self.location = (29.4243, -98.4911)
-        
+
+        self.dash_weather = []
+
         self.centralwidget = QWidget()
         self.setCentralWidget(self.centralwidget)
 
@@ -104,6 +106,25 @@ class MainWindow(QMainWindow):
         self.wait.error.connect(self.error)
 
         self.wait.start()
+
+        try:
+            with open("./dashboard.json", "r") as d:
+                dash_config = json.load(d)
+        except Exception as e:
+            print(e)
+
+        locs = []
+
+        for i in range(1,6):
+            card_info = dash_config.get(f"card{i}")
+            if isinstance(card_info, dict) and "lat" in card_info and "lon" in card_info:
+                locs.append([card_info.get("lat", 0), card_info.get("lon", 0)])
+            else:
+                locs.append([0, 0])
+        
+        self.dash_wait = DashboardWeatherWait(locs[0], locs[1], locs[2], locs[3], locs[4])
+        self.dash_wait.data.connect(self.dash_data_loaded)
+        self.dash_wait.start()
         
         
     def loaded(self, data):    
@@ -233,6 +254,45 @@ class MainWindow(QMainWindow):
         error_label.setAlignment(Qt.AlignCenter)
         error_label.setGeometry(0, 0, self.viewport.width(), self.viewport.height())
         error_label.show()
+
+    def dash_data_loaded(self, data):
+        self.dash_weather_data = data
+
+        self.dash_weather = []
+
+        if hasattr(self, 'dashboardpop') and self.dashboardpop is not None and not sip.isdeleted(self.dashboardpop):
+            self.update_dashboard()
+        
+        for i in range(1,6):
+            current_key = f"current{i}"
+
+            if current_key not in self.dash_weather_data:
+                continue
+
+            hi_lo_key = f"hi_lo{i}"
+
+            current_info = self.dash_weather_data.get(current_key, {})
+            hi_lo_info = self.dash_weather_data.get(hi_lo_key, {})
+
+            if current_info and hi_lo_info:
+                location_name = current_info.get("name", f"Card {i}")
+                
+                weather_list = current_info.get("weather", [])
+                condition = weather_list[0].get("main", "N/A") if weather_list else "N/A"
+                
+                main_data = current_info.get("main", {})
+                current_temp = str(int(round(main_data.get("temp", 0))))
+
+                daily_min_list = hi_lo_info.get("daily", {}).get('temperature_2m_min', [])
+                daily_max_list = hi_lo_info.get("daily", {}).get('temperature_2m_max', [])
+
+                hi = str(int(round(daily_max_list[0]))) if daily_max_list else "N/A"
+                low = str(int(round(daily_min_list[0]))) if daily_min_list else "N/A"
+
+                self.dash_weather.append([location_name, condition, current_temp, hi, low])
+
+
+
 
     def wheelEvent(self, event):
         self.v += event.angleDelta().y() * self.sensitvity
@@ -745,7 +805,25 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'uvf'): self.uvf.updatePixmap()
 
 
+    def refresh_dashboard_data(self):
+        try:
+            with open("./dashboard.json", "r") as d:
+                dash_config = json.load(d)
+        except Exception as e:
+            print(e)
 
+        locs = []
+
+        for i in range(1,6):
+            card_info = dash_config.get(f"card{i}")
+            if isinstance(card_info, dict) and "lat" in card_info and "lon" in card_info:
+                locs.append([card_info.get("lat", 0), card_info.get("lon", 0)])
+            else:
+                locs.append([0, 0])
+        
+        self.dash_wait = DashboardWeatherWait(locs[0], locs[1], locs[2], locs[3], locs[4])
+        self.dash_wait.data.connect(self.dash_data_loaded)
+        self.dash_wait.start()
 
     def dashboard(self, event):
         if not hasattr(self, 'dashboardpop') or self.dashboardpop == None:
@@ -777,21 +855,17 @@ class MainWindow(QMainWindow):
                 filled = []
 
                 for card in sorted_c:
-                    if hasattr(card, 'location_name') and isinstance(card.location_name, QLabel):
-                        location_text = card.location_name.text()
-                        if location_text.strip() and location_text:
-                            filled.append({
-                                "location_name": card.location_name,
-                                "lat": card.lat,
-                                "lon": card.lon,
-                            })
+                    if hasattr(card, 'location_name'):
+                        if isinstance(card.location_name, QLabel):
+                            loc_text = card.location_name.text().strip()
+                        else:
+                            loc_text = str(card.location_name).strip()
 
-                    elif hasattr(card, 'location_name') and isinstance(card.location_name, str):
-                        if card.location_name.strip() and card.location_name:
+                        if loc_text:
                             filled.append({
-                                "location_name": card.location_name,
-                                "lat": card.lat,
-                                "lon": card.lon,
+                                "location_name": loc_text,
+                                "lat": getattr(card, 'lat', 0),
+                                "lon": getattr(card, 'lon', 0),
                             })
                 
                 new_dash_data = {}
@@ -841,12 +915,23 @@ class MainWindow(QMainWindow):
                         if isinstance(c_info, dict) and str(c_info.get("location_name", "")).strip():
                             cards_to_load.append(c_info)
 
-                for card_info in cards_to_load:
+                for idx, card_info in enumerate(cards_to_load, start=1):
                     loc_name = str(card_info.get("location_name", "")).strip()
                     if not loc_name:
                         continue
 
-                    card = WeatherCard(self.dashboard_container, opaque_element, card_info.get("location_name", ""), card_info.get("lat", 0), card_info.get("lon", 0))
+                    if hasattr(self, 'dash_weather') and (idx-1) < len(self.dash_weather):
+                        current_weather = self.dash_weather[idx-1][1]
+                        current_temp = self.dash_weather[idx-1][2]
+                        hi = self.dash_weather[idx-1][3]
+                        low = self.dash_weather[idx-1][4]
+                    else:
+                        current_weather = "..."
+                        current_temp = "--"
+                        hi = "--"
+                        low = "--"
+
+                    card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low)
 
                     card.location_name = card_info.get("location_name", "")
                     card.lat = card_info.get("lat", 0)
@@ -898,13 +983,67 @@ class MainWindow(QMainWindow):
                     add.updatePixmap()
                     
                     self.dashboard_layout.addWidget(add, alignment=Qt.AlignCenter)
-
+                
+                self.check_add_btn()
+            
+            QApplication.processEvents()
             self.dashboard_container.show()
 
         else:
             for card in self.dash_cards:
                 if card is not sip.isdeleted(card):
                     card.updatePixmap()
+
+    def update_dashboard(self):
+        if not hasattr(self, 'dash_cards') or not self.dash_cards:
+            return
+        
+        data = getattr(self, 'dash_weather_data', {})
+
+        for idx, card in enumerate(self.dash_cards, start=1):
+            current_key = f'current{idx}'
+            hi_lo_key = f'hi_lo{idx}'
+
+            if current_key not in data:
+                continue
+            
+            current_info = data.get(current_key, {})
+            hi_lo_info = data.get(hi_lo_key, {})
+
+            weather_list = current_info.get("weather", [])
+            
+            if weather_list and isinstance(weather_list[0], dict):
+                conditon = weather_list[0].get("main", "N/A")
+            else:
+                conditon = "N/A"
+
+            main_data = current_info.get("main", {})
+            temp = main_data.get("temp", "N/A") if isinstance(main_data, dict) else "N/A"
+
+            daily_max = hi_lo_info.get("daily", {}).get('temperature_2m_max', 0)
+            daily_min = hi_lo_info.get("daily", {}).get('temperature_2m_min', 0)
+
+            temp_max = round(daily_max[0]) if daily_max else "N/A"
+            temp_min = round(daily_min[0]) if daily_min else "N/A"
+            current_temp = round(temp) if isinstance(temp, (int,float)) else "N/A"
+
+            if hasattr(card, "condition_label"):
+                card.condition_label.setText(str(conditon))
+            if hasattr(card, "temp_label"):
+                card.temp_label.setText(f"{current_temp}\u00b0")
+            if hasattr(card, 'hi_lo_label'):
+                card.hi_lo_label.setText(f"H: {temp_max}\u00b0 L: {temp_min}\u00b0")
+ 
+            daily_min_list = hi_lo_info.get("daily", {}).get('temperature_2m_min', [])
+            daily_max_list = hi_lo_info.get("daily", {}).get('temperature_2m_max', [])
+
+            hi = str(int(daily_max_list[0])) if daily_max_list else "N/A"
+            low = str(int(daily_min_list[0])) if daily_min_list else "N/A"
+
+            self.dash_weather.append([conditon, temp, hi, low])
+            
+        
+        
     def save_dashboard(self):
         self.dash_cards.sort(key=lambda c: c.index)
 
@@ -982,6 +1121,7 @@ class MainWindow(QMainWindow):
                 self.add_card_btn.hide()
 
             self.save_dashboard()
+            self.refresh_dashboard_data()
 
     def check_add_btn(self):
         if hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
@@ -1019,8 +1159,9 @@ class MainWindow(QMainWindow):
             card.setCursor(Qt.ClosedHandCursor)
 
     def card_drag_move(self, event, card):
-        if not card.dragging or not card.drag_start_pos:
-            return
+        if not hasattr(card, 'drag_global_start_x'):
+            card.drag_global_start_x = event.globalX()
+            card.drag_global_start_y = event.globalY()
         
         delta = event.globalPos() - card.drag_start_pos
         dx = delta.x()
@@ -1028,8 +1169,8 @@ class MainWindow(QMainWindow):
 
         
         if not getattr(card, 'swipe', False) and not getattr(card, 'vertical_swipe', False):
-            if abs(dx) > 10 or abs(dy) > 10:
-                if abs(dx) > abs(dy) * 1.2 and dx > 0:
+            if abs(dx) > 30 or abs(dx) > abs(dy):
+                if abs(dx) > 30 and abs(dx) > abs(dy):
                     card.swipe = True
                 else:
                     card.vertical_swipe = True
@@ -1048,67 +1189,60 @@ class MainWindow(QMainWindow):
                 card.show()
                 card.raise_()
                 card.drag_start_x = window_position.x()
+                card.drag_start_y = window_position.y()
 
-            original_x = getattr(card, 'original_x', 0)
-            new_x = max(original_x, original_x+dx)
+            
+            new_x = card.drag_start_x + dx
             card.move(int(new_x), card.original_y)
             return
         
 
         if getattr(card, 'vertical_swipe', False):
-            card_pos = card.mapTo(self.dashboardpop, QPoint(0,0))
-            new_y = card.original_y + dy
-            card.move(card.x(), new_y)
+            if card.parent() != self:
+                window_position = self.mapFromGlobal(card.mapToGlobal(QPoint(0,0)))
+                
+                card.placeholder = QWidget()
+                card.placeholder.setFixedSize(card.width(), card.height())
+                card.placeholder.setStyleSheet("background: transparent;")
+
+
+                self.dashboard_layout.insertWidget(self.dashboard_layout.indexOf(card), card.placeholder, alignment=Qt.AlignCenter)
+                
+                card.setParent(self)
+                card.move(window_position)
+                card.show()
+                card.raise_()
+                card.drag_start_x = window_position.x()
+                card.drag_start_y = window_position.y()
             
-            card_bottom_in_pop = card_pos.y() + card.height()
-            scrolling_speed = 10
-
-            if card_bottom_in_pop > (self.dashboardpop.height() - 40):
-                if self.yv > -620:
-                    self.yv -= scrolling_speed
-                    if self.yv < -620:
-                        self.yv = -620
-                    self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
-
-                    card.drag_start_pos.setY(card.drag_start_pos.y()+scrolling_speed)
-                    card.original_y -= scrolling_speed
-
-            elif card_pos.y() < 40:
-                if self.yv < 0:
-                    self.yv += scrolling_speed
-                    if self.yv > 0:
-                        self.yv = 0
-                    self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
-
-                    card.drag_start_pos.setY(card.drag_start_pos.y()-scrolling_speed)
-                    card.original_y += scrolling_speed
-
-            if not hasattr(card, 'index') or card in self.dash_cards:
-                return
-
+            new_y = card.drag_start_y + dy
+            card.move(card.x(), new_y)
 
             current = self.dash_cards.index(card)
             card.index = current
-            rowh = card.height()+15
+            spacing = self.dashboard_layout.spacing() if self.dashboard_layout.spacing() >= 0 else 15
+            rowh = card.height()+spacing
+            top_margin = 50
+            target_y = (current * rowh) + top_margin
 
-            if current > 0 and new_y < (current * rowh) - (rowh/2):
+            if current > 0 and new_y < target_y - (rowh/2):
                 # Kinda like a neighbor checking
                 nextto = self.dash_cards[current-1]
-
                 self.dash_cards[current], self.dash_cards[current - 1] = nextto, card
                 card.index -= 1
                 nextto.index += 1
-
-                self.glide(nextto, nextto.index * rowh + 50)
-
-            elif current < len(self.dash_cards) - 1 and new_y > (current * rowh) + (rowh / 2):
+                self.glide(nextto, nextto.index * rowh + top_margin)
+            
+            elif current < len(self.dash_cards) - 1 and new_y > target_y + (rowh / 2):
                 nextto = self.dash_cards[current + 1]
                 self.dash_cards[current], self.dash_cards[current+1] = nextto, card
-                
                 card.index += 1
                 nextto.index -= 1
-                
-                self.glide(nextto, (nextto.index * rowh) + 50)
+                self.glide(nextto, (nextto.index * rowh) + top_margin)
+
+            return
+        
+
 
     def card_drag_release(self, event, card):
         if not card.dragging:
@@ -1119,7 +1253,7 @@ class MainWindow(QMainWindow):
 
         if getattr(card, 'swipe', False):
             card.swipe = False
-            delta_x = card.x() - getattr(card, 'original_x', 0)
+            delta_x = card.x() - getattr(card, 'drag_start_x', getattr(card, 'original_x', 0))
 
             if delta_x > 140:
                 self.dismiss_card(card)
@@ -1146,8 +1280,6 @@ class MainWindow(QMainWindow):
 
         card.updatePixmap()
         self.save_dashboard()
-
-
 
     def dismiss_card(self, card):
         init_pos = card.pos()
