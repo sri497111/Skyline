@@ -53,12 +53,34 @@ class MainWindow(QMainWindow):
         self.sensitvity = 0.03
         self.yv = 0
         self.v = 0
+
+        theme = check_theme()
         
-        self.setStyleSheet("""
-            QMainWindow {
-                border-image: url('./Backgrounds/clear/blurred.png') 0 0 0 0 stretch stretch;
-            }
-        """)
+        self.centralwidget = QWidget(self)
+        self.centralwidget.setStyleSheet("background: #0b0d0f;")
+        self.setCentralWidget(self.centralwidget)   
+
+        self.bg = QLabel(self.centralwidget)
+        self.bg.setScaledContents(True)
+        self.bg.setGeometry(0,0,self.width(),self.height())
+        self.bg.setPixmap(QPixmap("./Backgrounds/dark-theme.png"))
+
+        self.bg_fade_effect = QGraphicsOpacityEffect(self.bg)
+        self.bg_fade_effect.setOpacity(1.0)
+        self.bg.setGraphicsEffect(self.bg_fade_effect)
+
+        self.weather_bg_label = QLabel(self.centralwidget)
+        self.weather_bg_label.setScaledContents(True)
+        self.weather_bg_label.setGeometry(0,0,self.width(),self.height())
+
+        self.weather_fade_effect = QGraphicsOpacityEffect(self.weather_bg_label)
+        self.weather_fade_effect.setOpacity(0.0)
+        self.weather_bg_label.setGraphicsEffect(self.weather_fade_effect)
+
+
+        self.weather_bg_label.lower()
+        self.bg.lower()
+
         
         self.element = QPixmap("./Backgrounds/clear/element.png")
         
@@ -78,9 +100,6 @@ class MainWindow(QMainWindow):
         self.location = (29.4243, -98.4911)
 
         self.dash_weather = []
-
-        self.centralwidget = QWidget()
-        self.setCentralWidget(self.centralwidget)
 
         # Init Viewport and screening (content)
 
@@ -125,7 +144,30 @@ class MainWindow(QMainWindow):
         self.dash_wait = DashboardWeatherWait(locs[0], locs[1], locs[2], locs[3], locs[4])
         self.dash_wait.data.connect(self.dash_data_loaded)
         self.dash_wait.start()
-        
+
+
+    def set_background_image(self, condition):
+        if "clear" in condition.lower():
+            self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred.png")
+            self.element = QPixmap("./Backgrounds/clear/element.png")
+        elif "clouds" in condition.lower():
+            self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
+            self.element = QPixmap("./Backgrounds/cloudy/element.png")
+        elif "partly" in condition.lower():
+            self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred.png")
+            self.element = QPixmap("./Backgrounds/partly/element.png")
+        #elif "Rain" in condition:
+            #self.bg_pixmap = QPixmap("./Backgrounds/rain.png")
+
+        self.weather_bg_label.setPixmap(self.bg_pixmap)
+
+        self.anim_weather_in = QPropertyAnimation(self.weather_fade_effect, b'opacity')
+        self.anim_weather_in.setDuration(400)
+        self.anim_weather_in.setStartValue(0.0)
+        self.anim_weather_in.setEndValue(1.0)
+        self.anim_weather_in.setEasingCurve(QEasingCurve.InOutQuad)
+        self.anim_weather_in.start()
+
         
     def loaded(self, data):    
         
@@ -142,7 +184,9 @@ class MainWindow(QMainWindow):
         
         self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))
         self.raw_temp = round(int(self.current_weather_data['main']['temp']), 0)
+
         self.current_condition = str(self.current_weather_data["weather"][0]["main"])
+        self.set_background_image(self.current_condition)
         
         self.weather_forecast_data = data['forecast']
         self.weather_hourly_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
@@ -224,7 +268,7 @@ class MainWindow(QMainWindow):
             self.loading.setGraphicsEffect(self.load_fade)
 
         self.fade_out = QPropertyAnimation(self.load_fade, b"opacity")
-        self.fade_out.setDuration(200)
+        self.fade_out.setDuration(400)
         self.fade_out.setStartValue(1.0)
         self.fade_out.setEndValue(0.0)
 
@@ -237,15 +281,18 @@ class MainWindow(QMainWindow):
                 self.loading = None
 
         self.fade_out.finished.connect(cleanup)
-        self.fade_out.start()
 
         self.fade_in = QPropertyAnimation(self.fade, b"opacity")
-        self.fade_in.setDuration(200)
+        self.fade_in.setDuration(400)
         self.fade_in.setStartValue(0.0)
         self.fade_in.setEndValue(1.0)
         
         self.fade_in.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
-        self.fade_in.start()
+
+        self.fade_out.finished.connect(self.fade_in.start)
+
+        QTimer.singleShot(10, self.fade_out.start)
+        
 
 
     def error(self, msg):
@@ -335,11 +382,17 @@ class MainWindow(QMainWindow):
                 self.sensitvity = 0.03
                 self.viewport.move(0, int(self.yv))
 
-                self.menu_card.updatePixmap()
-                self.hourly_forecast.updatePixmap()
-                self.daily_forecast.updatePixmap()
-                self.uvf.updatePixmap()
-                self.weather_map_card.updatePixmap()
+                if hasattr(self, 'menu_card') and self.menu_card is not None and not sip.isdeleted(self.menu_card):
+                    self.menu_card.updatePixmap()
+                if hasattr(self, 'hourly_forecast') and self.hourly_forecast is not None and not sip.isdeleted(self.hourly_forecast):
+                    self.hourly_forecast.updatePixmap()
+                if hasattr(self, 'daily_forecast') and self.daily_forecast is not None and not sip.isdeleted(self.daily_forecast):
+                    self.daily_forecast.updatePixmap()
+                if hasattr(self, 'uvf') and self.uvf is not None and not sip.isdeleted(self.uvf):
+                    self.uvf.updatePixmap()
+                if hasattr(self, 'weather_map_card') and self.weather_map_card is not None and not sip.isdeleted(self.weather_map_card):
+                    self.weather_map_card.updatePixmap()
+                
             
         else:
             if self.v != 0:
@@ -611,8 +664,21 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'searchpop') and self.searchpop:
             self.searchpop.exit_popup()
 
+        if hasattr(self, 'timer') and self.timer is not None:
+            self.timer.stop()
+
         hide_viewport = QGraphicsOpacityEffect()
         hide_viewport.setOpacity(0.0)
+
+        self.weather_fade_effect.setOpacity(0.0)
+        self.bg_fade_effect.setOpacity(1.0)
+
+        self.bg_fade_out = QPropertyAnimation(self.weather_fade_effect, b'opacity')
+        self.bg_fade_out.setDuration(600)
+        self.bg_fade_out.setStartValue(self.weather_fade_effect.opacity())
+        self.bg_fade_out.setEndValue(0.0)
+        self.bg_fade_out.setEasingCurve(QEasingCurve.InOutQuad)
+        self.bg_fade_out.start()
 
         self.viewport.setGraphicsEffect(hide_viewport)
 
@@ -1158,17 +1224,31 @@ class MainWindow(QMainWindow):
     def card_drag_press(self, event, card):
         if event.button() == Qt.LeftButton:
             card.dragging = True
+            card.dragging_unlocked = False
             card.drag_start_pos = event.globalPos()
             card.original_y = card.y()
             card.original_x = card.x()
             card.swipe = False
             card.vertical_swipe = False
 
-            card.raise_()
-            card.setCursor(Qt.ClosedHandCursor)
+            if not hasattr(card, 'hold_timer'):
+                card.hold_timer = QTimer()
+                card.hold_timer.setSingleShot(True)
+
+                def unlock():
+                    card.dragging_unlocked = True
+                    card.dragging = True
+                    card.swipe = False
+                    card.vertical_swipe = False
+                    card.raise_()
+                    card.setCursor(Qt.ClosedHandCursor)
+
+                card.hold_timer.timeout.connect(unlock)
+
+            card.hold_timer.start(200)
 
     def card_drag_move(self, event, card):
-        if not card.dragging:
+        if not getattr(card, 'dragging', False) or not getattr(card, 'dragging_unlocked', False):   
             return
         
         delta = event.globalPos() - card.drag_start_pos
@@ -1236,6 +1316,16 @@ class MainWindow(QMainWindow):
 
 
     def card_drag_release(self, event, card):
+        if hasattr(card, 'hold_timer'):
+            card.hold_timer.stop()
+        
+        if not getattr(card, 'dragging_unlocked', False): 
+            self.change_location(event, (card.lat, card.lon))
+            self.dashboardpop.exit_popup()
+            card.dragging = False
+            card.dragging_unlocked = False
+            return
+
         if card.dragging:
             card.dragging = False
             card.setCursor(Qt.OpenHandCursor)
@@ -1288,8 +1378,10 @@ class MainWindow(QMainWindow):
 
         card.anim = QPropertyAnimation(card, b'pos')
         card.anim.setDuration(250)
+        
         card.anim.setStartValue(mapped_pos)
         card.anim.setEndValue(end_pos)
+        
         card.anim.setEasingCurve(QEasingCurve.InOutQuad)
 
         def slide_finished():
@@ -1333,9 +1425,12 @@ class MainWindow(QMainWindow):
         
         card.anim = QPropertyAnimation(card, b'pos')
         card.anim.setDuration(duration)
+        
         card.anim.setStartValue(card.pos())
         card.anim.setEndValue(QPoint(end_x,  int(target_y)))
+        
         card.anim.setEasingCurve(QEasingCurve.InOutQuad)
+        
         card.anim.start()
 
 
@@ -1838,7 +1933,7 @@ class MainWindow(QMainWindow):
         
         if self.initial_place:
             location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
-        elif len(self.results[0][0]) < 20:
+        elif hasattr(self, 'results') and self.results and len(self.results[0][0]) < 20:
             location = text(str(self.results[0][0]), "white", poppins("semi bold"), 20, self.status)
         else:
             if len(str(self.current_location_name)) < 18:

@@ -5,7 +5,7 @@
         "length": "IN"
     },
     "theme": {
-        "main": "dark"
+        "main": "light"
     },
     "credit_file": {
         "file_path": "./attribution.txt"
