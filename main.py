@@ -892,6 +892,7 @@ class MainWindow(QMainWindow):
         self.dash_wait.start()
 
     def dashboard(self, event):
+        global low, hi
         if not hasattr(self, 'dashboardpop') or self.dashboardpop == None:
             self.dashboardpop = Popup(self, clear=False)
             self.dashboardpop.destroyed.connect(lambda: setattr(self, 'dashboardpop', None))
@@ -1006,7 +1007,11 @@ class MainWindow(QMainWindow):
                         hi = "--"
                         low = "--"
 
+
+                    
                     card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low)
+                    
+                    
 
                     card.location_name = card_info.get("location_name", "")
                     card.lat = card_info.get("lat", 0)
@@ -1059,7 +1064,7 @@ class MainWindow(QMainWindow):
                     
                     self.dashboard_layout.addWidget(add, alignment=Qt.AlignCenter)
                 
-                self.check_add_btn()
+                    self.check_add_btn()
             
             QApplication.processEvents()
             self.dashboard_container.show()
@@ -1088,9 +1093,9 @@ class MainWindow(QMainWindow):
             weather_list = current_info.get("weather", [])
             
             if weather_list and isinstance(weather_list[0], dict):
-                conditon = weather_list[0].get("main", "N/A")
+                condition = weather_list[0].get("main", "N/A")
             else:
-                conditon = "N/A"
+                condition = "N/A"
 
             main_data = current_info.get("main", {})
             temp = main_data.get("temp", "N/A") if isinstance(main_data, dict) else "N/A"
@@ -1103,7 +1108,9 @@ class MainWindow(QMainWindow):
             current_temp = round(temp) if isinstance(temp, (int,float)) else "N/A"
 
             if hasattr(card, "condition_label"):
-                card.condition_label.setText(str(conditon))
+                card.condition_label.setText(str(condition))
+                card.cond = str(condition)
+                card.updateWeatherBG()
             if hasattr(card, "temp_label"):
                 card.temp_label.setText(f"{current_temp}\u00b0")
             if hasattr(card, 'hi_lo_label'):
@@ -1115,9 +1122,7 @@ class MainWindow(QMainWindow):
             hi = str(int(daily_max_list[0])) if daily_max_list else "N/A"
             low = str(int(daily_min_list[0])) if daily_min_list else "N/A"
 
-            self.dash_weather.append([conditon, temp, hi, low])
-            
-        
+
         
     def save_dashboard(self):
         self.dash_cards.sort(key=lambda c: c.index)
@@ -1190,9 +1195,9 @@ class MainWindow(QMainWindow):
             
             self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
 
-            if len(self.dash_cards) < 5 and hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+            if len(self.dash_cards) < 5 and hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
                 self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
-            elif len(self.dash_cards) >= 5 and hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+            elif len(self.dash_cards) >= 5 and hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
                 self.add_card_btn.hide()
 
             self.save_dashboard()
@@ -1203,6 +1208,7 @@ class MainWindow(QMainWindow):
             if len(self.dash_cards) < 5:
                 self.add_card_btn.show()
                 self.add_card_btn.raise_()
+                self.add_card_btn.updatePixmap()
             else:
                 self.add_card_btn.hide()
 
@@ -1216,7 +1222,7 @@ class MainWindow(QMainWindow):
             card.index = idx
             self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
 
-        if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+        if hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
             self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
 
         self.check_add_btn()
@@ -1252,9 +1258,23 @@ class MainWindow(QMainWindow):
             return
         
         delta = event.globalPos() - card.drag_start_pos
-        new_y = card.original_y + delta.y()
+        
+        if not card.swipe and not card.vertical_swipe:
+            if abs(delta.x()) > abs(delta.y()) and abs(delta.x()) > 5:
+                card.swipe = True
+            elif abs(delta.y()) > abs(delta.x()) and abs(delta.y()) > 5:
+                card.vertical_swipe = True
 
-        new_x = card.original_x + delta.x()
+        if card.swipe:
+            new_x = card.original_x + delta.x()
+            new_y = card.original_y
+        elif card.vertical_swipe:
+            new_x = card.original_x
+            new_y = card.original_y + delta.y()
+        else:
+            new_x = card.original_x + delta.x()
+            new_y = card.original_y + delta.y()
+
         if new_x < card.original_x:
             new_x = card.original_x
 
@@ -1406,6 +1426,7 @@ class MainWindow(QMainWindow):
                 target_y = (idx * rowh) + 50
                 self.glide(c, target_y)
 
+            self.check_add_btn()
             if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
                 add_btn_target = (len(self.dash_cards) * rowh) + 50
                 self.glide(self.add_card_btn, add_btn_target)

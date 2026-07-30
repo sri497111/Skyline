@@ -130,6 +130,83 @@ class Card(QFrame):
 
 
         
+class RegularCard(QFrame):
+    clicked = pyqtSignal()
+    
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None):
+        super().__init__(parent)
+        self.setFixedHeight(h)
+        
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        
+        path = QPainterPath()
+        
+
+        self.radius = radius
+        self.raise_dark = raise_dark
+
+        self.pixmap = pixmap
+        self.window_size = window_size
+
+        self.window_widget = window_widget
+        
+        self.scaled = self.pixmap.scaled(878, 550, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        
+        self.bg = QLabel(self)
+        self.bg.setScaledContents(True)
+        
+        self.dark = QLabel(self)
+        self.dark.setStyleSheet(f"""
+                background: rgba(0,0,0,30);
+                border-radius: {radius}px;
+        """)
+        theme = check_theme()
+        color = "white" if theme == 0 else "black"
+        
+        self.highlight = QLabel(self)
+        self.highlight.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.highlight.setStyleSheet(f"""
+                border: 3px solid {color};
+                border-radius: {radius};
+                background: transparent;
+        """)
+        self.highlight.hide()
+
+        
+        
+    def updatePixmap(self):
+        h = self.height()
+        w = self.width()
+        
+        scaled = self.pixmap.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        crop = scaled.copy(0,0, w,h)
+        self.bg.setPixmap(crop)
+        
+        if self.raise_dark:
+            self.dark.raise_()
+        else:
+            self.dark.lower()
+            self.bg.lower()
+    
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        if event.size() == event.oldSize():
+            return
+        
+        h = self.height()
+        w = self.width()
+        
+        self.bg.setGeometry(0, 0, w, h)
+        self.dark.setGeometry(0, 0, w, h)
+        self.highlight.setGeometry(0,0,self.width(),self.height())
+
+        self.path = QPainterPath()
+        self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
+        self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
+        
+        self.updatePixmap()
+            
 
         
 
@@ -535,19 +612,30 @@ def mouse_release_dim(obj, callback=None):
     
     return wrapper
 
-class WeatherCard(Card):
+class WeatherCard(RegularCard):
     def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=72, hi=67, low=99):
         super().__init__(parent, background, 200)
 
         self.setFixedWidth(600)
         self.setCursor(Qt.PointingHandCursor)
 
+
+        self.cond = str(current_condition)
+
+        if "clear" in self.cond.lower():
+            self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
+        elif "partly" in self.cond.lower():
+            print("partly")
+            self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
+        elif "cloud" in self.cond.lower():
+            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+
         self.batch_select = False
 
         self.location_name = location_name
         self.lat = lat
         self.lon = lon
-        self.current_condition = current_condition
+        self.cond = current_condition
         self.current_temp = current_temp
         self.hi = hi
         self.low = low
@@ -567,7 +655,7 @@ class WeatherCard(Card):
         
         icon_and_name_layout.addWidget(self.location_name, alignment=Qt.AlignTop | Qt.AlignLeft)
 
-        self.condition_label = text(str(self.current_condition), "white", poppins("semi bold"), 15, self)
+        self.condition_label = text(str(self.cond), "white", poppins("semi bold"), 15, self)
         self.condition_label.setStyleSheet(self.condition_label.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
         icon_and_name_layout.addWidget(self.condition_label, alignment=Qt.AlignTop | Qt.AlignLeft)
 
@@ -596,6 +684,16 @@ class WeatherCard(Card):
 
         self.weather_layout.addWidget(temp)
 
-    def updatePixmap(self):
-        if hasattr(self, 'weather_card'):
-            self.weather_card.updatePixmap()
+    def updateWeatherBG(self):
+
+        if "-" not in self.cond:
+            if "clear" in self.cond.lower():
+                self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
+            elif "partly" in self.cond.lower():
+                print("partly")
+                self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
+            elif "cloud" in self.cond.lower():
+                self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+
+        self.updatePixmap()
+
