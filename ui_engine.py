@@ -202,7 +202,7 @@ class Card(QFrame):
 class RegularCard(QFrame):
     clicked = pyqtSignal()
     
-    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None):
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None, rain_effect=False):
         super().__init__(parent)
         self.setFixedHeight(h)
         
@@ -210,6 +210,7 @@ class RegularCard(QFrame):
         
         path = QPainterPath()
         
+        self.rain_effect = rain_effect
 
         self.radius = radius
         self.raise_dark = raise_dark
@@ -241,6 +242,12 @@ class RegularCard(QFrame):
         """)
         self.highlight.hide()
 
+        if rain_effect:
+            self.rain_shader = RainShaderOverlay(self, self.pixmap)
+            self.rain_shader.move(0, 0)
+            self.rain_shader.show()
+            self.rain_shader.raise_()
+
         
         
     def updatePixmap(self):
@@ -250,6 +257,11 @@ class RegularCard(QFrame):
         scaled = self.pixmap.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         crop = scaled.copy(0,0, w,h)
         self.bg.setPixmap(crop)
+
+        if self.rain_effect:
+            self.rain_shader.set_pixmap(crop)
+            self.rain_shader.setGeometry(0, 0, w, h)
+
         
         if self.raise_dark:
             self.dark.raise_()
@@ -683,7 +695,7 @@ def mouse_release_dim(obj, callback=None):
 
 class WeatherCard(RegularCard):
     def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=72, hi=67, low=99):
-        super().__init__(parent, background, 200)
+        super().__init__(parent, background, 200, rain_effect=True if "rain" in current_condition.lower() else False)
 
         self.setFixedWidth(600)
         self.setCursor(Qt.PointingHandCursor)
@@ -697,6 +709,8 @@ class WeatherCard(RegularCard):
             print("partly")
             self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
         elif "cloud" in self.cond.lower():
+            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+        elif "rain" in self.cond.lower():
             self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
 
         self.batch_select = False
