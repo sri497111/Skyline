@@ -179,8 +179,12 @@ class MainWindow(QMainWindow):
         self.current_weather = data['current']
 
         self.current_weather_data = self.current_weather
-        
-        self.current_location_name = str(self.current_weather_data["name"])
+
+        if hasattr(self, 'target_location') and self.target_location:
+            self.current_location_name = self.target_location
+            self.target_location = None
+        else:
+            self.current_location_name = str(self.current_weather_data["name"])
         
         self.current_temp = str(round(int(self.current_weather_data['main']['temp']), 0))
         self.raw_temp = round(int(self.current_weather_data['main']['temp']), 0)
@@ -638,8 +642,9 @@ class MainWindow(QMainWindow):
                 if change_type == "change":
                     btn.mousePressEvent = lambda event, c=coords: self.change_location(event, c)
                 else:
-                    def select_location(event, c=coords):
+                    def select_location(event, c=coords, n=location):
                         self.add_coords = c
+                        self.add_name = n
 
                         if hasattr(self, 'searchpop') and self.searchpop:
                             self.searchpop.exit_popup()
@@ -648,7 +653,7 @@ class MainWindow(QMainWindow):
                     
                     
 
-                    btn.mousePressEvent = lambda event, c=coords: select_location(event, c)
+                    btn.mousePressEvent = lambda event, c=coords, n=location_name: self.add_card(event, c, n)
 
                 self.suggestions_layout.setAlignment(Qt.AlignTop)
                 self.suggestions_layout.addWidget(btn)
@@ -660,7 +665,10 @@ class MainWindow(QMainWindow):
         QApplication.processEvents()
         QTimer.singleShot(50, self.suggestions.updatePixmap)
 
-    def change_location(self, event, coords):
+    def change_location(self, event, coords, loc_name=None):
+        self.target_location = loc_name
+        self.results = None
+
         if hasattr(self, 'searchpop') and self.searchpop:
             self.searchpop.exit_popup()
 
@@ -1170,8 +1178,12 @@ class MainWindow(QMainWindow):
             
             opaque_element = QPixmap("./Backgrounds/dark-element.png") if check_theme() == 0 else QPixmap("./Backgrounds/light-element.png")
 
-            if hasattr(self, 'results') and self.results:
+
+            if hasattr(self, 'add_name') and self.add_name:
+                location = self.add_name
+            elif hasattr(self, 'results') and self.results:
                 location = self.results[0][0]
+            
 
             card = WeatherCard(self.dashboard_container, opaque_element, location, current_condition="----", current_temp="--", hi="--", low="--")
             card.index = count
@@ -1340,7 +1352,9 @@ class MainWindow(QMainWindow):
             card.hold_timer.stop()
         
         if not getattr(card, 'dragging_unlocked', False): 
-            self.change_location(event, (card.lat, card.lon))
+            loc_name = card.location_name.text() if isinstance(card.location_name, QLabel) else str(card.location_name)
+
+            self.change_location(event, (card.lat, card.lon), loc_name=loc_name)
             self.dashboardpop.exit_popup()
             card.dragging = False
             card.dragging_unlocked = False
@@ -1954,8 +1968,6 @@ class MainWindow(QMainWindow):
         
         if self.initial_place:
             location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
-        elif hasattr(self, 'results') and self.results and len(self.results[0][0]) < 20:
-            location = text(str(self.results[0][0]), "white", poppins("semi bold"), 20, self.status)
         else:
             if len(str(self.current_location_name)) < 18:
                 location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
