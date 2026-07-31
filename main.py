@@ -156,8 +156,9 @@ class MainWindow(QMainWindow):
         elif "partly" in condition.lower():
             self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred.png")
             self.element = QPixmap("./Backgrounds/partly/element.png")
-        #elif "Rain" in condition:
-            #self.bg_pixmap = QPixmap("./Backgrounds/rain.png")
+        elif "Rain" in condition:
+            self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
+            self.element = QPixmap("./Backgrounds/cloudy/element.png")
 
         self.weather_bg_label.setPixmap(self.bg_pixmap)
 
@@ -170,7 +171,6 @@ class MainWindow(QMainWindow):
 
         
     def loaded(self, data):    
-        
         self.fade = QGraphicsOpacityEffect(self.viewport)
         self.fade.setOpacity(0.0)
         self.viewport.setGraphicsEffect(self.fade)
@@ -640,7 +640,7 @@ class MainWindow(QMainWindow):
 
                 btn = self.location_hover_button(string)
                 if change_type == "change":
-                    btn.mousePressEvent = lambda event, c=coords: self.change_location(event, c)
+                    btn.mousePressEvent = lambda event, c=coords, l=location: self.change_location(event, c, loc_name=l)
                 else:
                     def select_location(event, c=coords, n=location):
                         self.add_coords = c
@@ -1505,7 +1505,7 @@ class MainWindow(QMainWindow):
         
 
     def daily(self):
-        self.daily_forecast = Card(self.viewport, self.element, 500)
+        self.daily_forecast = Card(self.viewport, self.element, 500, rain_effect=True if "rain" in self.current_condition.lower() else False)
         self.daily_forecast.setContentsMargins(35,0,0,0)
         self.daily_layout = QVBoxLayout(self.daily_forecast)
         self.populate_daily_forecast(self.weather_daily_forecast_data)
@@ -1591,7 +1591,7 @@ class MainWindow(QMainWindow):
             horizontal_widget.show()
 
     def hourly(self):
-        self.hourly_forecast = Card(self.viewport, self.element, 200)
+        self.hourly_forecast = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False)
         self.timeline = QHBoxLayout(self.hourly_forecast)
         self.populate_hourly_forecast(self.weather_hourly_forecast_data)
         
@@ -1640,7 +1640,7 @@ class MainWindow(QMainWindow):
             vertical_widget.show()
     
     def weather_map(self):
-        self.weather_map_card = Card(self.viewport, self.element, 350)
+        self.weather_map_card = Card(self.viewport, self.element, 350, rain_effect=True if "rain" in self.current_condition.lower() else False)
         self.weather_map_card.setCursor(Qt.PointingHandCursor)
         self.weather_map_card.dark.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
@@ -1740,7 +1740,7 @@ class MainWindow(QMainWindow):
         self.timer.start(self.frequency)
     
     def uv_and_feels_like(self):
-        self.uvf = Card(self.viewport, self.element, 250)
+        self.uvf = Card(self.viewport, self.element, 250, rain_effect=True if "rain" in self.current_condition.lower() else False)
         self.uvf.setContentsMargins(105,20,55,0)
         self.uvf_layout = QVBoxLayout(self.uvf)
         self.uvf_layout.setSpacing(0)

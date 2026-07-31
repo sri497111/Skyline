@@ -3,8 +3,9 @@ from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QP
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QSize, QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve, QPoint, QEvent, QRect
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
-from system import *
 from html2image import Html2Image
+from shaders import RainShaderOverlay
+from system import *
 import json
 import os
 
@@ -23,14 +24,13 @@ def check_theme():
 class Card(QFrame):
     clicked = pyqtSignal()
     
-    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None):
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None, rain_effect=False):
         super().__init__(parent)
         self.setFixedHeight(h)
         
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         path = QPainterPath()
-        
 
         self.radius = radius
         self.raise_dark = raise_dark
@@ -61,24 +61,90 @@ class Card(QFrame):
                 background: transparent;
         """)
         self.highlight.hide()
+        
 
-        
-        
+        if rain_effect:
+            self.rain_shader = RainShaderOverlay(self, self.pixmap)
+            self.rain_shader.move(0, 0)
+            self.rain_shader.show()
+            self.rain_shader.raise_()
+
     def updatePixmap(self):
         h = self.height()
         w = self.width()
-        
-            
-        card_global = self.mapToGlobal(self.rect().topLeft())
+
+        if w <= 0 or h <= 0: return
 
         target = self.window_widget if self.window_widget else self.window()
+
+        if not target or target == self:
+            target_w = self.window_size[0]
+            target_h = self.window_size[1]
+        else:
+            target_w = target.width() if target.width() > 0 else self.window_size[0] if self.window_size else target.width()
+            target_h = target.height() if target.height() > 0 else self.window_size[1] if self.window_size else target.height()
+        
+        if getattr(self, '_cached_tw', None) == target_w and getattr(self, '_cached_th', None) == target_h:
+            self._cached_tw = target_w
+            self._cached_th = target_h
+            self.scaled = self.pixmap.scaled(target_w, target_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.offset_x = (self.scaled.width() - target_w) // 2
+            self.offset_y = (self.scaled.height() - target_h) // 2
+        
+        if not hasattr(self, 'scaled'): return  
+
+        card_global = self.mapToGlobal(self.rect().topLeft())
+
         window_global = target.mapToGlobal(target.rect().topLeft())
 
         relativex = card_global.x() - window_global.x()
         relativey = card_global.y() - window_global.y()
-        crop = self.scaled.copy(relativex, relativey, w, h)
+        
+        source_rect = QRect(relativex, relativey, w, h)
+        valid_rect = source_rect.intersected(self.scaled.rect())
+
+        crop = QPixmap(w, h)
+        crop.fill(Qt.transparent)
+
+        if not valid_rect.isEmpty():
+            sub_pixmap = self.scaled.copy(valid_rect)
+            painter = QPainter(crop)
+
+            dx = valid_rect.x() - relativex
+            dy = valid_rect.y() - relativey
+
+            painter.drawPixmap(dx, dy, sub_pixmap)
+
+            if dx > 0:
+                left_edge = sub_pixmap.copy(0, 0, 1, sub_pixmap.height())
+                painter.drawTiledPixmap(0, dy, dx, sub_pixmap.height(), left_edge)
+            if dx + valid_rect.width() < w:
+                right_edge = sub_pixmap.copy(sub_pixmap.width() - 1, 0, 1, sub_pixmap.height())
+                painter.drawTiledPixmap(dx + valid_rect.width(), dy, w - dx - valid_rect.width(), sub_pixmap.height(), right_edge)
+
+            if dy > 0:
+                top_edge = sub_pixmap.copy(0, 0, sub_pixmap.width(), 1)
+                painter.drawTiledPixmap(dx, 0, sub_pixmap.width(), dy, top_edge)
+            if dy + valid_rect.height() < h:
+                bottom_edge = sub_pixmap.copy(0, sub_pixmap.height() - 1, sub_pixmap.width(), 1)
+                painter.drawTiledPixmap(dx, dy + valid_rect.height(), sub_pixmap.width(), h - dy - valid_rect.height(), bottom_edge)
+
             
+            if dx > 0 or dx + valid_rect.width() < w or dy > 0 or dy + valid_rect.height() < h:
+                painter.fillRect(0,0, dx, dy, sub_pixmap.copy(0, 0, 1, 1).toImage().pixelColor(0, 0))
+            if dx + valid_rect.width() < w and dy > 0:
+                painter.fillRect(dx+valid_rect.width(), 0, w - (dx + valid_rect.width()), dy, sub_pixmap.copy(sub_pixmap.width() - 1, 0, 1, 1).toImage().pixelColor(0, 0))
+            if dx > 0 and dy + valid_rect.height() < h:
+                painter.fillRect(0, dy+valid_rect.height(), dx, h - (dy + valid_rect.height()), sub_pixmap.copy(0, sub_pixmap.height() - 1, 1, 1).toImage().pixelColor(0, 0))
+            if dx + valid_rect.width() < w and dy + valid_rect.height() < h:
+                painter.fillRect(dx+valid_rect.width(), dy+valid_rect.height(), w - (dx + valid_rect.width()), h - (dy + valid_rect.height()), sub_pixmap.copy(sub_pixmap.width() - 1, sub_pixmap.height() - 1, 1, 1).toImage().pixelColor(0, 0))
+
+            painter.end()
+        
         self.bg.setPixmap(crop)
+
+        if hasattr(self, 'rain_shader'):
+            self.rain_shader.set_pixmap(crop)
         
         if self.raise_dark:
             self.dark.raise_()
@@ -95,6 +161,9 @@ class Card(QFrame):
         self.bg.setGeometry(0, 0, w, h)
         self.dark.setGeometry(0, 0, w, h)
         self.highlight.setGeometry(0,0,self.width(),self.height())
+
+        if hasattr(self, 'rain_shader'):
+            self.rain_shader.setGeometry(0, 0, w, h) 
 
         self.path = QPainterPath()
         self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)

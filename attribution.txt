@@ -101,3 +101,18 @@ AUTHOR: Solar Icons
 From svgrepo.com (https://www.svgrepo.com/svg/528831/add-circle)
 
 ---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
+Rain Shaders -
+
+(Derived from) - 
+NAME - "Heartfelt" By Martijn Steinrucken (BigWings)
+FROM: shadertoy.com (https://www.shadertoy.com/view/ltffzl) 
+LICENSE: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported (CC BY-NC-SA 3.0)
+LICENSE-URL: https://creativecommons.org
+
+
+---------------------------------------------------------------------------------
+
+
