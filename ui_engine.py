@@ -694,7 +694,7 @@ def mouse_release_dim(obj, callback=None):
     return wrapper
 
 class WeatherCard(RegularCard):
-    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=72, hi=67, low=99):
+    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=72, hi=67, low=99, description=""):
         super().__init__(parent, background, 200, rain_effect=True if "rain" in current_condition.lower() else False)
 
         self.setFixedWidth(600)
@@ -703,25 +703,18 @@ class WeatherCard(RegularCard):
 
         self.cond = str(current_condition)
 
-        if "clear" in self.cond.lower():
-            self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
-        elif "partly" in self.cond.lower():
-            print("partly")
-            self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
-        elif "cloud" in self.cond.lower():
-            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
-        elif "rain" in self.cond.lower():
-            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
-
         self.batch_select = False
 
         self.location_name = location_name
         self.lat = lat
         self.lon = lon
         self.cond = current_condition
+        self.description = description
         self.current_temp = current_temp
         self.hi = hi
         self.low = low
+
+        print(self.description)
 
         self.weather_layout = QHBoxLayout(self)
         self.weather_layout.setContentsMargins(50,25,50,25)
@@ -747,6 +740,17 @@ class WeatherCard(RegularCard):
         self.weather_layout.addWidget(icon_and_name, alignment=Qt.AlignTop)
         self.weather_layout.addStretch(1)
 
+        if "clear" in self.cond.lower():
+            self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
+        elif "cloud" in self.cond.lower() and "few" in description.lower() or "scattered" in description.lower():
+            self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
+            self.cond = "Partly Cloudy"
+            self.condition_label.setText("Partly Cloudy")
+        elif "cloud" in self.cond.lower():
+            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+        elif "rain" in self.cond.lower():
+            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+
         
         temp = QWidget()
         temp_layout = QVBoxLayout(temp)
@@ -770,13 +774,19 @@ class WeatherCard(RegularCard):
     def updateWeatherBG(self):
 
         if "-" not in self.cond:
+            description = getattr(self, "description", "")
+
             if "clear" in self.cond.lower():
                 self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
-            elif "partly" in self.cond.lower():
-                print("partly")
-                self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
+            elif "cloud" in self.cond.lower() and "few" in description.lower() or "scattered" in description.lower():
+                self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
+                self.cond = "Partly Cloudy"
+                self.condition_label.setText("Partly Cloudy")
             elif "cloud" in self.cond.lower():
                 self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+            elif "rain" in self.cond.lower():
+                self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+            
 
         self.updatePixmap()
 

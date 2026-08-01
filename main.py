@@ -146,11 +146,14 @@ class MainWindow(QMainWindow):
         self.dash_wait.start()
 
 
-    def set_background_image(self, condition):
+    def set_background_image(self, condition, desc):
         if "clear" in condition.lower():
             self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred.png")
             self.element = QPixmap("./Backgrounds/clear/element.png")
-        elif "clouds" in condition.lower():
+        elif "cloud" in condition.lower() and "few" in desc.lower() or "scattered" in desc.lower():
+            self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
+            self.element = QPixmap("./Backgrounds/partly/element2.png")
+        elif "cloud" in condition.lower():
             self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
             self.element = QPixmap("./Backgrounds/cloudy/element.png")
         elif "partly" in condition.lower():
@@ -159,6 +162,7 @@ class MainWindow(QMainWindow):
         elif "Rain" in condition:
             self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
             self.element = QPixmap("./Backgrounds/cloudy/element.png")
+        
 
         self.weather_bg_label.setPixmap(self.bg_pixmap)
 
@@ -190,7 +194,8 @@ class MainWindow(QMainWindow):
         self.raw_temp = round(int(self.current_weather_data['main']['temp']), 0)
 
         self.current_condition = str(self.current_weather_data["weather"][0]["main"])
-        self.set_background_image(self.current_condition)
+        self.current_weather_description = str(self.current_weather_data["weather"][0]["description"])
+        self.set_background_image(self.current_condition, self.current_weather_description)
         
         self.weather_forecast_data = data['forecast']
         self.weather_hourly_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
@@ -330,6 +335,7 @@ class MainWindow(QMainWindow):
                 
                 weather_list = current_info.get("weather", [])
                 condition = weather_list[0].get("main", "N/A") if weather_list else "N/A"
+                desc = weather_list[0].get("description", "N/A") if weather_list else "N/A"
                 
                 main_data = current_info.get("main", {})
                 current_temp = str(int(round(main_data.get("temp", 0))))
@@ -340,7 +346,7 @@ class MainWindow(QMainWindow):
                 hi = str(int(round(daily_max_list[0]))) if daily_max_list else "N/A"
                 low = str(int(round(daily_min_list[0]))) if daily_min_list else "N/A"
 
-                self.dash_weather.append([location_name, condition, current_temp, hi, low])
+                self.dash_weather.append([location_name, condition, current_temp, hi, low, desc])
 
 
 
@@ -650,10 +656,8 @@ class MainWindow(QMainWindow):
                             self.searchpop.exit_popup()
 
                         self.add_card(event)
-                    
-                    
 
-                    btn.mousePressEvent = lambda event, c=coords, n=location_name: self.add_card(event, c, n)
+                    btn.mousePressEvent = lambda event, c=coords, n=location: select_location(event, c, n)
 
                 self.suggestions_layout.setAlignment(Qt.AlignTop)
                 self.suggestions_layout.addWidget(btn)
@@ -998,6 +1002,7 @@ class MainWindow(QMainWindow):
                     if hasattr(self, 'dash_weather') and (idx-1) < len(self.dash_weather):
                         current_weather = self.dash_weather[idx-1][1]
                         current_temp = self.dash_weather[idx-1][2]
+                        current_desc = self.dash_weather[idx-1][5]
                         
                         try:
                             hi = self.dash_weather[idx-1][3]
@@ -1017,7 +1022,7 @@ class MainWindow(QMainWindow):
 
 
                     
-                    card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low)
+                    card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low, description=current_desc)
                     
                     
 
@@ -1102,8 +1107,10 @@ class MainWindow(QMainWindow):
             
             if weather_list and isinstance(weather_list[0], dict):
                 condition = weather_list[0].get("main", "N/A")
+                desc = weather_list[0].get("description", "N/A")
             else:
                 condition = "N/A"
+                desc = "N/A"
 
             main_data = current_info.get("main", {})
             temp = main_data.get("temp", "N/A") if isinstance(main_data, dict) else "N/A"
@@ -1118,6 +1125,7 @@ class MainWindow(QMainWindow):
             if hasattr(card, "condition_label"):
                 card.condition_label.setText(str(condition))
                 card.cond = str(condition)
+                card.description = str(desc) 
                 card.updateWeatherBG()
             if hasattr(card, "temp_label"):
                 card.temp_label.setText(f"{current_temp}\u00b0")
@@ -1534,7 +1542,7 @@ class MainWindow(QMainWindow):
             cond = data[i][1]
             if cond.lower() == "clear":
                 cond = svg("./Icons/clear-day.svg", 64, 64)
-                
+
             elif cond.lower() == "clouds":
                 cond = svg("./Icons/cloudy.svg", 64, 64)
             elif cond.lower() == "rain":
