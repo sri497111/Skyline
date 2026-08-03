@@ -1,12 +1,15 @@
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget, QGraphicsOpacityEffect
-from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter
-from PyQt5 import QtWidgets
 from PyQt5.QtCore import QSize, QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve, QPoint, QEvent, QRect
+from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter, QBrush, QColor, QImage
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
-from html2image import Html2Image
+from PyQt5 import QtWidgets
+
 from shaders import RainShaderOverlay
 from system import *
+
+import requests
 import json
+import math
 import os
 
 dpi = get_dpi()
@@ -406,26 +409,68 @@ def hover_text(parent, pixmap, word, font_size):
     return container
 
 
-def get_map_preview(height, theme="light"):
-    html = Html2Image(custom_flags=["--headless=new", "--hide-scrollbar", "--disable-gpu"], disable_logging=True)
+def get_map_preview(lat, lon, width=778, height=305, theme="light", precise=True):
+    lat, lon = float(lat), float(lon)
+
+    zoom = 11 if precise else 9
+    n = 2.0 ** int(zoom)
+
+    xtile = float((lon + 180.0) / 360.0 * n)
+    ytile = float((1.0 - math.log(math.tan(math.radians(lat)) + (1.0 / math.cos(math.radians(lat)))) / math.pi) / 2.0 * n)
     
-    html.browser.use_new_headless = True
+    top_left_x = (xtile * 256) - (width/2)
+    top_left_y = (ytile * 256) - (height/2)
 
+    start_x, end_x = int(top_left_x // 256), int((top_left_x + width) // 256)
+    start_y, end_y = int(top_left_y // 256), int((top_left_y + height) // 256)
 
-    if theme == "light":
-        hfile = os.path.abspath("./map-light-preview.html")
-    elif theme == "dark":
-        hfile = os.path.abspath("./map-dark-preview.html")
+    pixmap = QPixmap(width, height)
+
+    if theme == "dark": pixmap.fill(QColor("#0f172a")); path = "dark_all"
+    else: pixmap.fill(QColor("#cbd5e1")); path = "rastertiles/voyager"
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+
+    DATA_KEY = "7dd61afc5903f81a45839eb528dcbabd"
+
+    for x in range(start_x, end_x + 1):
+        for y in range(start_y, end_y + 1):
+            dest_x = (x * 256) - top_left_x
+            dest_y = (y * 256) - top_left_y
+
+            rect = QRectF(dest_x, dest_y, 256, 256)
+            
+            base_url = f"https://a.basemaps.cartocdn.com/{path}/{zoom}/{x}/{y}.png"
+            req_base = requests.get(base_url)
+
+            if req_base.status_code == 200:
+                image = QImage()
+                image.loadFromData(req_base.content)
+                painter.setOpacity(0.9)
+                painter.drawImage(rect, image)
+                painter.setOpacity(1.0)
+    
+    if precise:
+        cx, cy = width / 2.0, height / 2.0
+
+        painter.setPen(Qt.NoPen)
+
+        painter.setBrush(QColor("#ffffff"))
+        painter.drawEllipse(QRectF(cx - 10, cy - 10, 20, 20))
+
+        painter.setBrush(QColor("#3693ff"))
+        painter.drawEllipse(QRectF(cx - 5, cy - 5, 10, 10))
+
+        painter.end()
+    
     else:
-        hfile = os.path.abspath("./map-light-preview.html")
-    
-    preview = "preview.png"
-    
-    html.screenshot(url=f"file:///{hfile}", save_as=preview, size=(778, int(height)))
-    
-    html_pixmap = QPixmap(preview)
-    
-    return html_pixmap
+        painter.setPen(Qt.NoPen)
+        painter.end()
+        
+
+    return pixmap
+
 
 
 class Loading_Icon(QSvgWidget):

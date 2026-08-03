@@ -2,7 +2,7 @@
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy, QLineEdit
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop, QEvent, QParallelAnimationGroup, QPoint
+from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop, QEvent, QParallelAnimationGroup, QPoint, QThread
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
@@ -11,7 +11,7 @@ from PyQt5 import sip
 
 # Modules
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text, WeatherCard
-from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWait, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html
+from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWait, MapWorker, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html, get_map_preview
 from settings import load_settings, update_settings, check_theme
 from system import internet_check
 from location import *
@@ -95,9 +95,12 @@ class MainWindow(QMainWindow):
         self.initial_place = True
 
         self.add_coords = None
+
+        self.precise = True
         
         # Init Weather
-        self.location = (29.4243, -98.4911)
+        current_loc = current_location("coords")
+        self.location = (current_loc[0], current_loc[1])
 
         self.dash_weather = []
 
@@ -107,6 +110,7 @@ class MainWindow(QMainWindow):
         self.viewport.setGeometry(0, 0, 878, 1800)
         self.viewport.setStyleSheet("background: transparent; border: none; border-radius: 0px;")
         
+        edit_html()
 
         self.ui_blur = QGraphicsBlurEffect()
         self.ui_blur.setBlurRadius(40)
@@ -120,7 +124,7 @@ class MainWindow(QMainWindow):
         self.loading.show()
         self.loading.raise_()
 
-        self.wait = WeatherWait(self.location)
+        self.wait = WeatherWait(self.location, precise=self.precise)
         self.wait.data.connect(self.loaded)
         self.wait.error.connect(self.error)
 
@@ -305,7 +309,7 @@ class MainWindow(QMainWindow):
 
 
     def error(self, msg):
-        print("Error -                {msg}")
+        print(f"Error -                {msg}")
         error_label = text("Error retrieving data...", "white", poppins("semi bold"), 20, self.viewport)
         error_label.setAlignment(Qt.AlignCenter)
         error_label.setGeometry(0, 0, self.viewport.width(), self.viewport.height())
@@ -800,6 +804,8 @@ class MainWindow(QMainWindow):
             self.weather_map_card,
         ]
 
+        self.load_map_async(index)
+
         if hasattr(self, 'search_bar') and self.search_bar and not sip.isdeleted(self.search_bar):
             cards_to_change.append(self.search_bar)
         if hasattr(self, 'suggestions') and self.suggestions and not sip.isdeleted(self.suggestions):
@@ -839,6 +845,26 @@ class MainWindow(QMainWindow):
             if getattr(self, 'credits', None): self.credits.updatePixmap()
         
         QApplication.processEvents()
+    
+    def load_map_async(self, index):
+        theme = "dark" if index == 0 else "light"
+
+        self.map_thread = QThread()
+        self.map_worker = MapWorker(self.location, theme, self.precise)
+        self.map_worker.moveToThread(self.map_thread)
+
+        self.map_thread.started.connect(self.map_worker.run)
+        self.map_worker.finished.connect(self.on_map)
+
+        self.map_worker.finished.connect(self.map_thread.quit)
+        self.map_worker.finished.connect(self.map_worker.deleteLater)
+        self.map_thread.finished.connect(self.map_thread.deleteLater)
+
+        self.map_thread.start()
+    
+    def on_map(self, pix):
+        self.map_label.setPixmap(pix)
+
 
     def unit_change(self, index=None):
         QTimer.singleShot(0, self.apply_unit_change)
@@ -2017,6 +2043,10 @@ class MainWindow(QMainWindow):
                 except:
                     print("Error")
         internet_check(callback=check)
+
+    def closeEvent(self, event):
+        edit_html(reverse=True)
+        event.accept()
                     
 
         

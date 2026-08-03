@@ -14,5 +14,6 @@ def current_location(location_type="area"):
             return location.address
         elif location_type == "coords":
             return (latitude, longitude)
+    
     except:
         return "Greenwich, London, UK"

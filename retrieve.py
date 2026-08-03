@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, QObject
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from ui_engine import get_map_preview
@@ -88,18 +88,19 @@ class WeatherWait(QThread):
     data = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, location):
+    def __init__(self, location, precise=True):
         super().__init__()
         self.location = location
+        self.precise = precise
+
     def run(self):
         try:
             weather = Weather(self.location)
             
             theme = check_theme()
 
-            if theme == 0: map_val = get_map_preview(305, theme="dark")
-            else: map_val = get_map_preview(305, theme="light")
-
+            if theme == 0: map_val = get_map_preview(self.location[0], self.location[1], theme="dark", precise=self.precise)
+            else: map_val = get_map_preview(self.location[0], self.location[1], theme="light", precise=self.precise)
 
             weather_data = {
                 "current": weather.retrieve_current_weather(),
@@ -190,16 +191,40 @@ def parse_forecast_for_precip(data):
     
     return total_inches, round(total, 1)
 
-
+def k():
+    k="f@-~ 9f79@-~0ac-#@-~99d*5ac11 d1^(d0)b6b2@-~c9f6#$fe#@$*e1"
+    k = k.strip().replace("@-~", "").replace("#$","").replace(" ", "").replace("-#", "").replace("(", "").replace(")", "").replace("^", "").replace("*", "").replace("$", "").replace("#", "").replace("@", "")
+    return k
 
 def open_replace(path):
     file = Path(str(path))
     content = file.read_text()
-    new_content = content.replace("REPLACE_KEY", "7dd61afc5903f81a45839eb528dcbabd")
+    new_content = content.replace("HASHEDRJK", f"{k()}")
     file.write_text(new_content)
 
-def edit_html():
-    open_replace("./map-light.html")
-    open_replace("./map-dark.html")
-    open_replace("./map-light-preview.html")
-    open_replace("./map-dark-preview.html")
+def open_replace_reverse(path):
+    file = Path(str(path))
+    content = file.read_text()
+    new_content = content.replace(f"{k()}", "HASHEDRJK")
+    file.write_text(new_content)
+
+def edit_html(reverse=False):
+    if reverse:
+        open_replace_reverse("./map-light.html")
+        open_replace_reverse("./map-dark.html")
+    else:
+        open_replace("./map-light.html")
+        open_replace("./map-dark.html")
+
+class MapWorker(QObject):
+    finished = pyqtSignal(object)
+    def __init__(self, location, theme, precise):
+        super().__init__()
+        self.lat = location[0]
+        self.lon = location[1]
+        self.theme = theme
+        self.precise = precise
+
+    def run(self):
+        map_pix = get_map_preview(self.lat, self.lon, theme=self.theme, precise=self.precise)
+        self.finished.emit(map_pix)

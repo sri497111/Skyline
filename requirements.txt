@@ -2,6 +2,6 @@ pyqt5
 geocoders
 geopy
 requests
-html2image
+math
 os
 pyqtwebengine
