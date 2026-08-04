@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
         self.windowsize = (SIZE[0], SIZE[1])
         self.refresh_rate = refresh
         self.frequency = int(round(1000/self.refresh_rate, 0))
+        self.active_threads = []
         
         # ---------------------- Window ---------------------- #
         self.friction = 0.92
@@ -849,18 +850,22 @@ class MainWindow(QMainWindow):
     def load_map_async(self, index):
         theme = "dark" if index == 0 else "light"
 
-        self.map_thread = QThread()
-        self.map_worker = MapWorker(self.location, theme, self.precise)
-        self.map_worker.moveToThread(self.map_thread)
+        map_thread = QThread(self)
+        map_worker = MapWorker(self.location, theme, self.precise)
+        map_worker.moveToThread(map_thread)
+        
+        self.active_threads.append(map_thread)
+        
+        map_thread.started.connect(map_worker.run)
+        map_worker.finished.connect(self.on_map)
 
-        self.map_thread.started.connect(self.map_worker.run)
-        self.map_worker.finished.connect(self.on_map)
+        map_worker.finished.connect(map_thread.quit)
+        map_worker.finished.connect(map_worker.deleteLater)
+        map_thread.finished.connect(map_thread.deleteLater)
 
-        self.map_worker.finished.connect(self.map_thread.quit)
-        self.map_worker.finished.connect(self.map_worker.deleteLater)
-        self.map_thread.finished.connect(self.map_thread.deleteLater)
+        map_thread.finished.connect(lambda: self.active_threads.remove(map_thread) if map_thread in self.active_threads else None)
 
-        self.map_thread.start()
+        map_thread.start()
     
     def on_map(self, pix):
         self.map_label.setPixmap(pix)
