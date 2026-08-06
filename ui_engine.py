@@ -1,8 +1,9 @@
+import typing
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget, QGraphicsOpacityEffect
 from PyQt5.QtCore import QSize, QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve, QPoint, QEvent, QRect
 from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter, QBrush, QColor, QImage
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
-from PyQt5 import QtWidgets
+from PyQt5 import QtGui, QtWidgets
 
 from shaders import RainShaderOverlay
 from system import *
@@ -38,6 +39,8 @@ class Card(QFrame):
         self.radius = radius
         self.raise_dark = raise_dark
 
+        self.rain_effect = rain_effect
+
         self.pixmap = pixmap
         self.window_size = window_size
 
@@ -53,6 +56,8 @@ class Card(QFrame):
                 background: rgba(0,0,0,30);
                 border-radius: {radius}px;
         """)
+        self.dark.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
         theme = check_theme()
         color = "white" if theme == 0 else "black"
         
@@ -69,6 +74,9 @@ class Card(QFrame):
         if rain_effect:
             self.rain_shader = RainShaderOverlay(self, self.pixmap)
             self.rain_shader.move(0, 0)
+
+            self.rain_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            
             self.rain_shader.show()
             self.rain_shader.raise_()
 
@@ -148,9 +156,14 @@ class Card(QFrame):
 
         if hasattr(self, 'rain_shader'):
             self.rain_shader.set_pixmap(crop)
+            self.rain_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
         if self.raise_dark:
-            self.dark.raise_()
+            if not self.rain_effect:
+                self.dark.stackUnder(self.bg)
+                self.bg.lower()
+            else:
+                self.dark.raise_()
         else:
             self.dark.lower()
             self.bg.lower()
@@ -248,6 +261,9 @@ class RegularCard(QFrame):
         if rain_effect:
             self.rain_shader = RainShaderOverlay(self, self.pixmap)
             self.rain_shader.move(0, 0)
+
+            self.rain_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
             self.rain_shader.show()
             self.rain_shader.raise_()
 
@@ -355,12 +371,41 @@ def text(text, color, font, size=20, parent=None, padding=0, transparency=False)
     
     return label
 
-def svg(path, width, height):
-    svg_widget = QSvgWidget(path)
-    svg_widget.setFixedSize(width, height)
+class SVG(QSvgWidget):
+    def __init__(self, path, flip_h=False, parent=None):
+        super().__init__(path)
+        self.flip_h = flip_h
+        self.rendersvg = QSvgRenderer(path, self)
+    
+    def paintEvent(self, event):
+        if not self.flip_h and not self.flip_v:
+            super().paintEvent(event)
+            return
+        
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+
+        painter.save()
+        
+        painter.translate(self.width(), 0)
+        painter.scale(-1, 1)
+
+        self.rendersvg.render(painter, QRectF(0, 0, self.width(), self.height()))
+
+        painter.restore()
+    
+
+def svg(path, width, height, reverse=False):
+    if reverse: 
+        svg_widget = SVG(path, flip_h=True)
+        svg_widget.setFixedSize(width, height)
+    else:
+        svg_widget = QSvgWidget(path)
+        svg_widget.setFixedSize(width, height)
     return svg_widget
     
-def hover_svg(path, width, height):
+def hover_svg(path, width, height, reverse=False):
     container = QFrame()
 
     padding = 14
@@ -382,8 +427,12 @@ def hover_svg(path, width, height):
     
     """)
 
+    if reverse:
+        svg_widget = svg(path, width, height, reverse=True)
+        svg_widget.setParent(container)
+    else:
+        svg_widget = QSvgWidget(path, container)
 
-    svg_widget = QSvgWidget(path, container)
     svg_widget.setFixedSize(width, height)
     svg_widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
@@ -795,6 +844,7 @@ class WeatherCard(RegularCard):
             self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
         elif "rain" in self.cond.lower():
             self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+            self.dark.raise_()
 
         
         temp = QWidget()

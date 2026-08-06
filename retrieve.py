@@ -84,36 +84,6 @@ class DashboardWeatherWait(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
-class WeatherWait(QThread):
-    data = pyqtSignal(dict)
-    error = pyqtSignal(str)
-
-    def __init__(self, location, precise=True):
-        super().__init__()
-        self.location = location
-        self.precise = precise
-
-    def run(self):
-        try:
-            weather = Weather(self.location)
-            
-            theme = check_theme()
-
-            if theme == 0: map_val = get_map_preview(self.location[0], self.location[1], theme="dark", precise=self.precise)
-            else: map_val = get_map_preview(self.location[0], self.location[1], theme="light", precise=self.precise)
-
-            weather_data = {
-                "current": weather.retrieve_current_weather(),
-                "forecast": weather.retrieve_forecast(),
-                "uv": weather.retrieve_uv(),
-                "map": map_val
-            }
-            self.data.emit(weather_data)
-            
-        except Exception as e:
-            self.error.emit(str(e))
-
-
 def parse_hourly_forecast(data, increment=8):
     forecast = []
     
@@ -180,6 +150,101 @@ def parse_daily_forecast(data):
         forecast.append([day_of_week, condition, min_temp, max_temp, avg_precip, avg_wind])
         
     return forecast
+
+class Insights:
+    def __init__(self, time, temp, feels, wind, uv, tmrw, forecast, additional=None):
+        self.time = time
+        self.temp = temp
+        self.feels = feels
+        self.wind = wind
+        self.uv = uv
+        self.tmrw = tmrw
+        self.forecast = forecast
+        self.additional = additional
+    
+    def retrieve_insights(self):
+        self.url = f"https://skyline-insights-backend.vercel.app/api/weather"
+
+        self.payload = {
+            "time": self.time,
+            "temp": self.temp,
+            "feels": self.feels,
+            "wind": self.wind,
+            "uv": self.uv,
+            "tmrw": self.tmrw,
+            "forecast": self.forecast,
+            "additional": "Null"
+            
+        }
+        print(self.payload)
+
+        if self.additional is not None:
+            self.payload["additional"] = self.additional
+
+        try:
+            response = requests.post(self.url, json=self.payload)
+            data = response.json()
+            return data
+        except Exception as e:
+            print(e)
+
+class WeatherWait(QThread):
+    data = pyqtSignal(dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, location, precise=True):
+        super().__init__()
+        self.location = location
+        self.precise = precise
+
+    def run(self):
+        try:
+            weather = Weather(self.location)
+            
+            theme = check_theme()
+
+            if theme == 0: map_val = get_map_preview(self.location[0], self.location[1], theme="dark", precise=self.precise)
+            else: map_val = get_map_preview(self.location[0], self.location[1], theme="light", precise=self.precise)
+
+            weather_data = {
+                "current": weather.retrieve_current_weather(),
+                "forecast": weather.retrieve_forecast(),
+                "uv": weather.retrieve_uv(),
+                "map": map_val
+            }
+
+            dt = weather_data["current"]["dt"]
+            timezones = weather_data["current"]["timezone"]
+            timestamp = (dt) + (timezones)
+
+            local_data = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+
+            formatted_time = local_data.strftime("%I:%M %p").lower()
+
+            time = formatted_time
+
+            temp = weather_data["current"]["main"]["temp"]
+            feels = weather_data["current"]["main"]["feels_like"]
+            wind = weather_data["current"]["wind"]["speed"]
+            uv = weather_data["uv"]
+            forecast_hourly = []
+            forecast_data = weather_data["forecast"]
+            daily = parse_daily_forecast(forecast_data)
+            wind = str(daily[0][5])+"MPH"
+            tmrw = f"cond: {str(daily[1][1])} min: {daily[1][2]} max: {daily[1][3]}"
+            parsed_forecast = parse_hourly_forecast(forecast_data)
+            for i in range(5):
+                forecast_hourly.append([parsed_forecast[i][0], parsed_forecast[i][1], parsed_forecast[i][2]])
+            
+            insights = Insights(time, temp, feels, wind, uv, tmrw, forecast_hourly, additional=f"POP/Percent of Precipitation is {daily[0][4]}%")
+            insights_data = insights.retrieve_insights()
+
+            weather_data["insights"] = insights_data
+            
+            self.data.emit(weather_data)
+            
+        except Exception as e:
+            self.error.emit(str(e))
 
 def parse_forecast_for_precip(data):
     total = 0

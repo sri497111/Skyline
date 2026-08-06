@@ -115,4 +115,16 @@ LICENSE-URL: https://creativecommons.org
 
 ---------------------------------------------------------------------------------
 
+---------------------------------------------------------------------------------
+
+Dot Icon -
+
+NAME - Dot Small SVG Vector
+COLLECTION: Wolf Kit Solid Glyph Icons
+LICENSE: CC Attribution License
+AUTHOR: thewolfkit
+
+From svgrepo.com (https://www.svgrepo.com/svg/491399/dot-small)
+
+---------------------------------------------------------------------------------
 

@@ -11,7 +11,7 @@ from PyQt5 import sip
 
 # Modules
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text, WeatherCard
-from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWait, MapWorker, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html, get_map_preview
+from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWait, MapWorker, Insights, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html, get_map_preview
 from settings import load_settings, update_settings, check_theme
 from system import internet_check
 from location import *
@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         # Init Viewport and screening (content)
 
         self.viewport = QWidget(self.centralwidget)
-        self.viewport.setGeometry(0, 0, 878, 1800)
+        self.viewport.setGeometry(0, 0, 878, 2100)
         self.viewport.setStyleSheet("background: transparent; border: none; border-radius: 0px;")
         
         edit_html()
@@ -186,7 +186,17 @@ class MainWindow(QMainWindow):
 
 
         self.current_weather = data['current']
+        
+        self.insights_data = data['insights']['insights']
+        self.insights_list = []
+        self.insights_data = self.insights_data.split(";")
+        
+        for insight_text in self.insights_data:
+            self.insights_list.append(insight_text.split(" -- "))
 
+        print(self.insights_list)
+
+        
         self.current_weather_data = self.current_weather
 
         if hasattr(self, 'target_location') and self.target_location:
@@ -222,6 +232,7 @@ class MainWindow(QMainWindow):
         self.status_bar()
         self.hourly()
         self.daily()
+        self.insights()
         self.uv_and_feels_like()
         self.weather_map()
         
@@ -245,6 +256,10 @@ class MainWindow(QMainWindow):
         
         main_layout.addSpacing(30)
 
+        main_layout.addWidget(self.insights_card)
+
+        main_layout.addSpacing(30)
+
         main_layout.addWidget(self.uvf)
 
         main_layout.addSpacing(30)
@@ -258,6 +273,7 @@ class MainWindow(QMainWindow):
         self.menu_card.updatePixmap()
         self.hourly_forecast.updatePixmap()
         self.daily_forecast.updatePixmap()
+        self.insights_card.updatePixmap()
         self.uvf.updatePixmap()
         self.weather_map_card.updatePixmap()
 
@@ -363,7 +379,6 @@ class MainWindow(QMainWindow):
             self.yv += self.v
             self.v *= self.friction
             
-            
             if hasattr(self, 'dashboardpop') and self.dashboardpop is not None and not sip.isdeleted(self.dashboardpop):
                 if hasattr(self, 'dashboard_container') and not sip.isdeleted(self.dashboard_container):
                     if self.yv > 0:
@@ -371,8 +386,7 @@ class MainWindow(QMainWindow):
                         self.v = 0
                     elif self.yv < -620:
                         self.yv = -620
-                        self.v = 0
-                    
+                        self.v = 0        
                     
                     self.sensitvity = 0.01
                     self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
@@ -388,12 +402,10 @@ class MainWindow(QMainWindow):
                 if self.yv > 0:
                     self.yv = 0
                     self.v = 0
-                elif self.yv < -1250:
-                    self.yv = -1250
+                elif self.yv < -1550:
+                    self.yv = -1550
                     self.v = 0
                 
-
-
                 self.sensitvity = 0.03
                 self.viewport.move(0, int(self.yv))
 
@@ -403,6 +415,22 @@ class MainWindow(QMainWindow):
                     self.hourly_forecast.updatePixmap()
                 if hasattr(self, 'daily_forecast') and self.daily_forecast is not None and not sip.isdeleted(self.daily_forecast):
                     self.daily_forecast.updatePixmap()
+                
+                if hasattr(self, 'insights_card') and self.insights_card is not None and not sip.isdeleted(self.insights_card):
+                    self.insights_card.updatePixmap()
+                    if hasattr(self, 'insight_widget') and self.insight_widget is not None and not sip.isdeleted(self.insight_widget):
+                        self.insight_widget.update()
+                    if hasattr(self, 'insights_title_fade') and not sip.isdeleted(self.insights_title_fade):
+                        self.insights_title_fade.update()
+                    if hasattr(self, 'insights_title') and not sip.isdeleted(self.insights_title):
+                        self.insights_title.repaint()
+                        self.insights_title.raise_()
+                    if hasattr(self, 'insights_body_fade') and not sip.isdeleted(self.insights_body_fade):
+                        self.insights_body_fade.update()
+                    if hasattr(self, 'insights_body') and not sip.isdeleted(self.insights_body):
+                        self.insights_body.repaint()
+                        self.insights_body.raise_()
+                
                 if hasattr(self, 'uvf') and self.uvf is not None and not sip.isdeleted(self.uvf):
                     self.uvf.updatePixmap()
                 if hasattr(self, 'weather_map_card') and self.weather_map_card is not None and not sip.isdeleted(self.weather_map_card):
@@ -1628,6 +1656,149 @@ class MainWindow(QMainWindow):
             hbox.addWidget(num)
             self.daily_layout.addWidget(horizontal_widget)
             horizontal_widget.show()
+
+    def insights(self):
+        self.insights_card = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.insights_card.setContentsMargins(0,0,0,0)
+        self.insights_layout = QHBoxLayout(self.insights_card)
+        self.insights_layout.setContentsMargins(15,0,15,0)
+        self.populate_insights()
+    
+    def populate_insights(self, data=[]):
+        spacing = 22
+
+        self.index = 0
+
+        self.insights_layout.setAlignment(Qt.AlignCenter)
+        self.insights_layout.setSpacing(0)
+
+        self.backward = hover_svg("./Icons/forward.svg", 45, 45, reverse=True)
+        self.backward.setCursor(Qt.PointingHandCursor)
+        self.backward.mousePressEvent = lambda event: self.change_insights(event, f=False)
+        self.backward.raise_()
+
+        self.insights_layout.addWidget(self.backward, alignment=Qt.AlignCenter)
+
+        self.insights_layout.addStretch(1)
+
+        self.insight_widget = QWidget(self.insights_card)
+        self.insights_widget_layout = QVBoxLayout(self.insight_widget)
+        self.insights_widget_layout.setContentsMargins(0,0,0,0)
+        self.insights_widget_layout.setSpacing(spacing)
+
+        title = self.insights_list[0][0]
+        
+        self.insights_title = text(title, "white", poppins("semi bold"), 12, self.insight_widget)
+        self.insights_title.setStyleSheet(self.insights_title.styleSheet() + "; color: rgba(255, 255, 255, 0.5);")
+        self.insights_widget_layout.addWidget(self.insights_title, alignment=Qt.AlignCenter)
+
+        self.insights_title_fade = QGraphicsOpacityEffect(self.insights_title)
+        self.insights_title_fade.setOpacity(1.0)
+        self.insights_title.setGraphicsEffect(self.insights_title_fade)
+
+        self.insights_widget_layout.addStretch(1)
+
+        body = self.insights_list[0][1]
+        if len(body) > 95:
+            spacing = 14
+        self.insights_widget_layout.setSpacing(spacing)
+
+        self.insights_body = text(body, "white", poppins("semi bold"), 17, self.insight_widget)
+        self.insights_body.setFixedWidth(600)
+        self.insights_body.setAlignment(Qt.AlignCenter)
+        self.insights_body.setWordWrap(True)
+
+        self.insights_body_fade = QGraphicsOpacityEffect(self.insights_body)
+        self.insights_body_fade.setOpacity(1.0)
+        self.insights_body.setGraphicsEffect(self.insights_body_fade)
+
+        self.insights_widget_layout.addStretch(1)
+
+        self.three_dots = QWidget(self.insight_widget)
+        self.three_dots_layout = QHBoxLayout(self.three_dots)
+        self.three_dots_layout.setContentsMargins(0,0,0,0)
+        
+        self.dot1 = svg("./Icons/selector-dot.svg", 15, 15)
+        self.dot2 = svg("./Icons/selector-dot.svg", 15, 15)
+        self.dot3 = svg("./Icons/selector-dot.svg", 15, 15)
+
+        self.three_dots_layout.addWidget(self.dot1, alignment=Qt.AlignCenter)
+        self.three_dots_layout.addWidget(self.dot2, alignment=Qt.AlignCenter)
+        self.three_dots_layout.addWidget(self.dot3, alignment=Qt.AlignCenter)
+
+        self.insights_widget_layout.addWidget(self.insights_body, alignment=Qt.AlignCenter)
+
+        self.insights_widget_layout.addWidget(self.three_dots, alignment=Qt.AlignCenter)
+
+        self.insights_layout.addWidget(self.insight_widget, alignment=Qt.AlignCenter)
+
+        self.insights_layout.addStretch(1)
+
+        self.forward = hover_svg("./Icons/forward.svg", 45, 45)
+        self.forward.setCursor(Qt.PointingHandCursor)
+        self.forward.mousePressEvent = lambda event: self.change_insights(event, f=True)
+        self.forward.raise_()
+
+        self.insights_layout.addWidget(self.forward, alignment=Qt.AlignCenter)
+
+
+        self.insights_card.updatePixmap()
+
+    def change_insights(self, event, f=True):
+        if f:
+            self.index += 1
+        else:
+            self.index -= 1
+        
+        if self.index > 2:
+            self.index = 0
+        elif self.index < 0:
+            self.index = 2
+
+        #print(self.index)
+        self.update_insights()
+
+    def update_insights(self):
+        self.insights_body_fade_anim = QPropertyAnimation(self.insights_body_fade, b'opacity')
+        self.insights_body_fade_anim.setDuration(250)
+        self.insights_body_fade_anim.setStartValue(1.0)
+        self.insights_body_fade_anim.setEndValue(0.0)
+        self.insights_body_fade_anim.setEasingCurve(QEasingCurve.InOutQuad)
+        self.insights_body_fade_anim.start()
+
+        self.insights_title_fade_anim = QPropertyAnimation(self.insights_title_fade, b'opacity')
+        self.insights_title_fade_anim.setDuration(250)
+        self.insights_title_fade_anim.setStartValue(1.0)
+        self.insights_title_fade_anim.setEndValue(0.0)
+        self.insights_title_fade_anim.setEasingCurve(QEasingCurve.InOutQuad)
+
+        def on_fade_out_finished():
+            spacing = 22
+            body = self.insights_list[self.index][1]
+            if len(body) > 95:
+                spacing = 14
+            self.insights_widget_layout.setSpacing(spacing)
+
+            self.insights_body.setText(body)
+            self.insights_title.setText(self.insights_list[self.index][0])
+
+            self.insights_body_fadein_anim = QPropertyAnimation(self.insights_body_fade, b'opacity')
+            self.insights_body_fadein_anim.setDuration(250)
+            self.insights_body_fadein_anim.setStartValue(0.0)
+            self.insights_body_fadein_anim.setEndValue(1.0)
+            self.insights_body_fadein_anim.setEasingCurve(QEasingCurve.InOutQuad)
+            self.insights_body_fadein_anim.start()
+
+            self.insights_title_fadein_anim = QPropertyAnimation(self.insights_title_fade, b'opacity')
+            self.insights_title_fadein_anim.setDuration(250)
+            self.insights_title_fadein_anim.setStartValue(0.0)
+            self.insights_title_fadein_anim.setEndValue(1.0)
+            self.insights_title_fadein_anim.setEasingCurve(QEasingCurve.InOutQuad)
+            self.insights_title_fadein_anim.start()
+        
+        self.insights_body_fade_anim.finished.connect(on_fade_out_finished) 
+        self.insights_body_fade_anim.start()
+        print(self.three_dots.pos())
 
     def hourly(self):
         self.hourly_forecast = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False)
