@@ -40,6 +40,9 @@ class Weather:
         return self.data['forecast']
     def retrieve_uv(self):
         return self.data['uv']['now']['uv_index']
+    def retrieve_aqi(self):
+        return self.data['aqi']
+    
     
 class DashboardWeather:
     def __init__(self, loc1=[], loc2=[], loc3=[], loc4=[], loc5=[]):
@@ -210,7 +213,8 @@ class WeatherWait(QThread):
                 "current": weather.retrieve_current_weather(),
                 "forecast": weather.retrieve_forecast(),
                 "uv": weather.retrieve_uv(),
-                "map": map_val
+                "map": map_val,
+                "aqi": weather.retrieve_aqi()
             }
 
             dt = weather_data["current"]["dt"]

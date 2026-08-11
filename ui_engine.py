@@ -1,9 +1,13 @@
-import typing
+import os
+
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QFrame, QSizePolicy, QApplication, QPushButton, QVBoxLayout, QWidget, QGraphicsOpacityEffect
-from PyQt5.QtCore import QSize, QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve, QPoint, QEvent, QRect
-from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter, QBrush, QColor, QImage
+from PyQt5.QtCore import QSize, QTimer, Qt, pyqtSignal, QRectF, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve, QPoint, QEvent, QRect, QByteArray
+from PyQt5.QtGui import QFont, QFontDatabase, QPixmap, QRegion, QPainterPath, QPainter, QBrush, QColor, QImage, QTransform
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from PyQt5 import QtGui, QtWidgets
+
+from pathlib import Path
+import resvg_py as resvg
 
 from shaders import RainShaderOverlay
 from system import *
@@ -11,7 +15,7 @@ from system import *
 import requests
 import json
 import math
-import os
+
 
 dpi = get_dpi()
 
@@ -371,39 +375,31 @@ def text(text, color, font, size=20, parent=None, padding=0, transparency=False)
     
     return label
 
-class SVG(QSvgWidget):
-    def __init__(self, path, flip_h=False, parent=None):
-        super().__init__(path)
+class SVG(QWidget):
+    def __init__(self, path, width, height, flip_h=False, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(width, height)
         self.flip_h = flip_h
-        self.rendersvg = QSvgRenderer(path, self)
-    
+
+        with Path(path).open('r', encoding='utf-8') as f:
+            svg = f.read()
+
+        png = resvg.svg_to_bytes(svg_string=svg, width=width, height=height)
+
+        self.pixmap = QPixmap()
+        self.pixmap.loadFromData(QByteArray(png))
+
+        if self.flip_h:
+            self.pixmap = self.pixmap.transformed(QTransform().scale(-1, 1), Qt.SmoothTransformation)
+        
     def paintEvent(self, event):
-        if not self.flip_h and not self.flip_v:
-            super().paintEvent(event)
-            return
-        
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
-
-        painter.save()
-        
-        painter.translate(self.width(), 0)
-        painter.scale(-1, 1)
-
-        self.rendersvg.render(painter, QRectF(0, 0, self.width(), self.height()))
-
-        painter.restore()
+        painter.drawPixmap(0, 0, self.pixmap)
     
 
 def svg(path, width, height, reverse=False):
-    if reverse: 
-        svg_widget = SVG(path, flip_h=True)
-        svg_widget.setFixedSize(width, height)
-    else:
-        svg_widget = QSvgWidget(path)
-        svg_widget.setFixedSize(width, height)
-    return svg_widget
+    return SVG(path, width, height, reverse)
     
 def hover_svg(path, width, height, reverse=False):
     container = QFrame()

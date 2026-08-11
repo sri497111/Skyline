@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128">
+  <g id="wind-spinner__wind-spinner" clip-path="url(#wind-spinner__clip0_2038_27008)">
+    
+    <g id="wind-spinner__Wind Spinner" mask="url(#wind-spinner__center-hole)">
+      <path id="wind-spinner__Pole" fill="#FFFFFF" fill-rule="evenodd" d="M62 96V64h4v32z" clip-rule="evenodd"/>
+      
+      <path id="wind-spinner__Blades" fill="#FFFFFF" 
+            d="M50.667 73C44.774 73 40 67.627 40 61h24v12z M76 74.333C76 80.224 70.627 85 64 85V61h12z M77.333 49C83.224 49 88 54.373 88 61H64V49z M52 47.667C52 41.776 57.373 37 64 37v24H52z"/>
+    </g>
+  </g>
+  
+  <defs>
+    <mask id="wind-spinner__center-hole">
+      <rect x="0" y="0" width="128" height="128" fill="#FFFFFF" />
+      <circle cx="64" cy="61" r="3.5" fill="#000000" />
+    </mask>
+    
+    <clipPath id="wind-spinner__clip0_2038_27008">
+      <rect width="128" height="128"/>
+    </clipPath>
+  </defs>
+</svg>

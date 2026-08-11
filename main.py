@@ -23,6 +23,7 @@ import subprocess
 import platform
 import datetime
 import sys
+import requests
 import os
 import gc
 
@@ -108,7 +109,7 @@ class MainWindow(QMainWindow):
         # Init Viewport and screening (content)
 
         self.viewport = QWidget(self.centralwidget)
-        self.viewport.setGeometry(0, 0, 878, 2100)
+        self.viewport.setGeometry(0, 0, 878, 2280)
         self.viewport.setStyleSheet("background: transparent; border: none; border-radius: 0px;")
         
         edit_html()
@@ -156,14 +157,17 @@ class MainWindow(QMainWindow):
             self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred.png")
             self.element = QPixmap("./Backgrounds/clear/element.png")
         elif "cloud" in condition.lower() and "few" in desc.lower() or "scattered" in desc.lower():
-            self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
-            self.element = QPixmap("./Backgrounds/partly/element2.png")
+            self.current_condition = "Partly Cloudy"
+            if self.ismorning:
+                self.current_condition = "Partly Cloudy"
+                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
+                self.element = QPixmap("./Backgrounds/partly/element2.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred1.png")
+                self.element = QPixmap("./Backgrounds/partly/element1.png")
         elif "cloud" in condition.lower():
             self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
             self.element = QPixmap("./Backgrounds/cloudy/element.png")
-        elif "partly" in condition.lower():
-            self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred.png")
-            self.element = QPixmap("./Backgrounds/partly/element.png")
         elif "Rain" in condition:
             self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
             self.element = QPixmap("./Backgrounds/cloudy/element.png")
@@ -184,7 +188,6 @@ class MainWindow(QMainWindow):
         self.fade.setOpacity(0.0)
         self.viewport.setGraphicsEffect(self.fade)
 
-
         self.current_weather = data['current']
         
         self.insights_data = data['insights']['insights']
@@ -194,9 +197,6 @@ class MainWindow(QMainWindow):
         for insight_text in self.insights_data:
             self.insights_list.append(insight_text.split(" -- "))
 
-        print(self.insights_list)
-
-        
         self.current_weather_data = self.current_weather
 
         if hasattr(self, 'target_location') and self.target_location:
@@ -210,7 +210,6 @@ class MainWindow(QMainWindow):
 
         self.current_condition = str(self.current_weather_data["weather"][0]["main"])
         self.current_weather_description = str(self.current_weather_data["weather"][0]["description"])
-        self.set_background_image(self.current_condition, self.current_weather_description)
         
         self.weather_forecast_data = data['forecast']
         self.weather_hourly_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
@@ -225,7 +224,44 @@ class MainWindow(QMainWindow):
         self.uv_index = data['uv']
 
         self.map_pixmap = data['map']
+
+        self.aqi_index = data['aqi']
+
+        self.loc = current_location("coords")
+        self.lat = self.loc[0]
+        self.lon = self.loc[1]
+        humid = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={self.lat}&longitude={self.lon}&current=relative_humidity_2m,dew_point_2m").json()
         
+        self.humidity = int(humid['current']['relative_humidity_2m'])
+
+        self.raw_dew= int(humid['current']['dew_point_2m'])
+        
+        temp_unit = load_settings()
+        is_fahrenheit = temp_unit['units']['temperature'] == "F"
+        if is_fahrenheit:
+            self.dew_point = round((self.raw_dew*9)/5+32)
+        else:
+            self.dew_point = int(self.raw_dew)
+
+        sunrise_unix = self.current_weather_data['sys']['sunrise']
+        sunset_unix = self.current_weather_data['sys']['sunset']
+
+        current_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        if current_time < sunrise_unix or current_time > sunset_unix:
+            self.ismorning = False
+        else:
+            self.ismorning = True
+        
+        tz_offset = self.current_weather_data['timezone']
+
+        local_sunrise = datetime.datetime.fromtimestamp(sunrise_unix, datetime.timezone.utc) + datetime.timedelta(seconds=tz_offset)
+        local_sunset = datetime.datetime.fromtimestamp(sunset_unix, datetime.timezone.utc) + datetime.timedelta(seconds=tz_offset)
+
+        self.sunrise = local_sunrise.strftime("%#I:%M %p")
+        self.sunset = local_sunset.strftime("%#I:%M %p")
+
+        self.set_background_image(self.current_condition, self.current_weather_description)
+
         # Init Widgets
 
         self.menu_bar()
@@ -234,6 +270,7 @@ class MainWindow(QMainWindow):
         self.daily()
         self.insights()
         self.uv_and_feels_like()
+        self.humidity_air_sun()
         self.weather_map()
         
         main_layout = QVBoxLayout(self.viewport)
@@ -263,6 +300,10 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.uvf)
 
         main_layout.addSpacing(30)
+
+        main_layout.addWidget(self.has)
+
+        main_layout.addSpacing(30)
         
         main_layout.addWidget(self.weather_map_card)
 
@@ -275,6 +316,7 @@ class MainWindow(QMainWindow):
         self.daily_forecast.updatePixmap()
         self.insights_card.updatePixmap()
         self.uvf.updatePixmap()
+        self.has.updatePixmap()
         self.weather_map_card.updatePixmap()
 
         theme_index = check_theme()
@@ -402,8 +444,8 @@ class MainWindow(QMainWindow):
                 if self.yv > 0:
                     self.yv = 0
                     self.v = 0
-                elif self.yv < -1550:
-                    self.yv = -1550
+                elif self.yv < -1720:
+                    self.yv = -1720
                     self.v = 0
                 
                 self.sensitvity = 0.03
@@ -430,9 +472,27 @@ class MainWindow(QMainWindow):
                     if hasattr(self, 'insights_body') and not sip.isdeleted(self.insights_body):
                         self.insights_body.repaint()
                         self.insights_body.raise_()
+                    if hasattr(self, 'dot1opacity') and not sip.isdeleted(self.dot1opacity):
+                        self.dot1opacity.update()
+                    if hasattr(self, 'dot1') and not sip.isdeleted(self.dot1):
+                        self.dot1.repaint()
+                        self.dot1.raise_()
+                    if hasattr(self, 'dot2opacity') and not sip.isdeleted(self.dot2opacity):
+                        self.dot2opacity.update()
+                    if hasattr(self, 'dot2') and not sip.isdeleted(self.dot2):
+                        self.dot2.repaint()
+                        self.dot2.raise_()
+                    if hasattr(self, 'dot3opacity') and not sip.isdeleted(self.dot3opacity):
+                        self.dot3opacity.update()
+                    if hasattr(self, 'dot3') and not sip.isdeleted(self.dot3):
+                        self.dot3.repaint()
+                        self.dot3.raise_()
+                    
                 
                 if hasattr(self, 'uvf') and self.uvf is not None and not sip.isdeleted(self.uvf):
                     self.uvf.updatePixmap()
+                if hasattr(self, 'has') and self.has is not None and not sip.isdeleted(self.has):
+                    self.has.updatePixmap()
                 if hasattr(self, 'weather_map_card') and self.weather_map_card is not None and not sip.isdeleted(self.weather_map_card):
                     self.weather_map_card.updatePixmap()
                 
@@ -830,6 +890,8 @@ class MainWindow(QMainWindow):
             self.hourly_forecast,
             self.daily_forecast, 
             self.uvf,
+            self.has,
+            self.insights_card,
             self.weather_map_card,
         ]
 
@@ -911,6 +973,19 @@ class MainWindow(QMainWindow):
 
         self.status_bar()
 
+
+        is_fahrenheit = unit['units']['temperature'] == "F"
+        
+        if hasattr(self, 'raw_dew'):
+            if is_fahrenheit:
+                self.dew_point = round((self.raw_dew*9)/5+32)
+            else:
+                self.dew_point = int(self.raw_dew)
+
+        dew_string = f"Dew Point at {self.dew_point}\u00b0"
+        if hasattr(self, 'dew_point_text') and not sip.isdeleted(self.dew_point_text):
+            self.dew_point_text.setText(dew_string)
+
         if hasattr(self, 'timeline'):
             while self.timeline.count():
                 child = self.timeline.takeAt(0)
@@ -936,10 +1011,20 @@ class MainWindow(QMainWindow):
                     wid.deleteLater()
             self.populate_uvf()
 
+        if hasattr(self, 'has_layout'):
+            while self.has_layout.count():
+                child = self.has_layout.takeAt(0)
+                wid = child.widget()
+                if wid is not None:
+                    wid.deleteLater()
+            self.populate_has()
+
         QApplication.processEvents()
+        
         if hasattr(self, 'hourly_forecast'): self.hourly_forecast.updatePixmap()
         if hasattr(self, 'daily_forecast'): self.daily_forecast.updatePixmap()
         if hasattr(self, 'uvf'): self.uvf.updatePixmap()
+        if hasattr(self, 'has'): self.has.updatePixmap()
 
 
     def refresh_dashboard_data(self):
@@ -1628,7 +1713,6 @@ class MainWindow(QMainWindow):
             min_max.setFixedWidth(120)
             min_max.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             
-            
             if is_mph:
                 wind_speed = data[i][5]
                 SPEED_UNIT = "MPH"
@@ -1665,10 +1749,12 @@ class MainWindow(QMainWindow):
         self.populate_insights()
     
     def populate_insights(self, data=[]):
-        spacing = 22
+        spacing = 12
 
         self.index = 0
 
+        theme = check_theme()
+        
         self.insights_layout.setAlignment(Qt.AlignCenter)
         self.insights_layout.setSpacing(0)
 
@@ -1699,12 +1785,11 @@ class MainWindow(QMainWindow):
         self.insights_widget_layout.addStretch(1)
 
         body = self.insights_list[0][1]
-        if len(body) > 95:
-            spacing = 14
-        self.insights_widget_layout.setSpacing(spacing)
+        
 
         self.insights_body = text(body, "white", poppins("semi bold"), 17, self.insight_widget)
         self.insights_body.setFixedWidth(600)
+        self.insights_body.setMinimumHeight(90)
         self.insights_body.setAlignment(Qt.AlignCenter)
         self.insights_body.setWordWrap(True)
 
@@ -1718,9 +1803,20 @@ class MainWindow(QMainWindow):
         self.three_dots_layout = QHBoxLayout(self.three_dots)
         self.three_dots_layout.setContentsMargins(0,0,0,0)
         
-        self.dot1 = svg("./Icons/selector-dot.svg", 15, 15)
-        self.dot2 = svg("./Icons/selector-dot.svg", 15, 15)
-        self.dot3 = svg("./Icons/selector-dot.svg", 15, 15)
+        self.dot1 = svg("./Icons/selector-dot.svg", 25, 25)
+        self.dot1opacity = QGraphicsOpacityEffect(self.dot1)
+        self.dot1.setGraphicsEffect(self.dot1opacity)
+        self.dot1opacity.setOpacity(0.3)
+
+        self.dot2 = svg("./Icons/selector-dot.svg", 25, 25)
+        self.dot2opacity = QGraphicsOpacityEffect(self.dot2)
+        self.dot2.setGraphicsEffect(self.dot2opacity)
+        self.dot2opacity.setOpacity(0.3)
+
+        self.dot3 = svg("./Icons/selector-dot.svg", 25, 25)
+        self.dot3opacity = QGraphicsOpacityEffect(self.dot3)
+        self.dot3.setGraphicsEffect(self.dot3opacity)
+        self.dot3opacity.setOpacity(0.3)
 
         self.three_dots_layout.addWidget(self.dot1, alignment=Qt.AlignCenter)
         self.three_dots_layout.addWidget(self.dot2, alignment=Qt.AlignCenter)
@@ -1755,7 +1851,19 @@ class MainWindow(QMainWindow):
         elif self.index < 0:
             self.index = 2
 
-        #print(self.index)
+        if self.index == 0:
+            self.dot1opacity.setOpacity(1.0)
+            self.dot2opacity.setOpacity(0.3)
+            self.dot3opacity.setOpacity(0.3)
+        elif self.index == 1:
+            self.dot1opacity.setOpacity(0.3)
+            self.dot2opacity.setOpacity(1.0)
+            self.dot3opacity.setOpacity(0.3)
+        elif self.index == 2:
+            self.dot1opacity.setOpacity(0.3)
+            self.dot2opacity.setOpacity(0.3)
+            self.dot3opacity.setOpacity(1.0)
+
         self.update_insights()
 
     def update_insights(self):
@@ -1773,7 +1881,7 @@ class MainWindow(QMainWindow):
         self.insights_title_fade_anim.setEasingCurve(QEasingCurve.InOutQuad)
 
         def on_fade_out_finished():
-            spacing = 22
+            spacing = 12
             body = self.insights_list[self.index][1]
             if len(body) > 95:
                 spacing = 14
@@ -1781,6 +1889,19 @@ class MainWindow(QMainWindow):
 
             self.insights_body.setText(body)
             self.insights_title.setText(self.insights_list[self.index][0])
+
+            self.insight_widget.layout().update()
+            self.dot1opacity.update()
+            self.dot2opacity.update()
+            self.dot3opacity.update()
+            self.three_dots.repaint()
+
+            if self.index == 0:
+                self.dot1.move(self.dot1.x(), self.dot1.y())
+            if self.index == 1:
+                self.dot2.move(self.dot2.x(), self.dot3.y())
+            if self.index == 2:
+                self.dot3.move(self.dot3.x(), self.dot2.y())
 
             self.insights_body_fadein_anim = QPropertyAnimation(self.insights_body_fade, b'opacity')
             self.insights_body_fadein_anim.setDuration(250)
@@ -1798,7 +1919,7 @@ class MainWindow(QMainWindow):
         
         self.insights_body_fade_anim.finished.connect(on_fade_out_finished) 
         self.insights_body_fade_anim.start()
-        print(self.three_dots.pos())
+        
 
     def hourly(self):
         self.hourly_forecast = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False)
@@ -1819,15 +1940,33 @@ class MainWindow(QMainWindow):
             print(forecast_data[i])
             time.setAlignment(Qt.AlignCenter)
             
+            is_night = False
+
+            try:
+                hourt = datetime.datetime.strptime(str(forecast_data[i][0]), "%I %p").time()
+                srt = datetime.datetime.strptime(self.sunrise, "%I:%M %p").time()
+                sst = datetime.datetime.strptime(self.sunset, "%I:%M %p").time()
+
+                if hourt < srt or hourt > sst:
+                    is_night = True
+            except:
+                pass
+
             
-            if str(forecast_data[i][1]).lower() == "clouds":
-                condition = svg("./Icons/cloudy.svg", 83, 83)
-            elif str(forecast_data[i][1]).lower() == "clear":
-                condition = svg("./Icons/clear-day.svg", 83, 83)
+            if str(forecast_data[i][1]).lower() == "clear":
+                if not is_night:
+                    condition = svg("./Icons/clear-day.svg", 83, 83)
+                else:
+                    condition = svg("./Icons/clear-night.svg", 83, 83)
             elif str(forecast_data[i][1]).lower() == "rain":
                 condition = svg("./Icons/rain.svg", 83, 83)
-            else:
-                condition = svg("./Icons/rain.svg", 64, 64)
+            elif "cloud" in str(forecast_data[i][1]).lower() or "few" in str(forecast_data[i][1]).lower() or "scattered" in str(forecast_data[i][1]).lower():
+                if not is_night:
+                    condition = svg("./Icons/partly-cloudy-day.svg", 83, 83)
+                else:
+                    condition = svg("./Icons/partly-cloudy-night.svg", 83, 83)
+            elif str(forecast_data[i][1]).lower() == "clouds" or str(forecast_data[i][1]).lower() == "overcast" or str(forecast_data[i][1]).lower() == "cloudy":
+                condition = svg("./Icons/cloudy.svg", 83, 83)
             
             unit = load_settings()
             is_fahrenheit = unit['units']['temperature'] == "F"
@@ -2119,6 +2258,197 @@ class MainWindow(QMainWindow):
         
         
         self.uvf_layout.addWidget(column_widget)
+
+    def humidity_air_sun(self):
+        self.has = Card(self.viewport, self.element, 250, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.has.setContentsMargins(105,20,55,0)
+        self.has_layout = QVBoxLayout(self.has)
+        self.has_layout.setSpacing(0)
+        self.populate_has()
+    
+    def populate_has(self):
+        column_widget = QWidget()
+        column_layout = QHBoxLayout(column_widget)
+        column_layout.setContentsMargins(0,0,0,0)
+
+        # I am copying uvf so i can just add has. I am not gonna change the var names as its a hassle
+
+        uv_widget = QWidget()
+        uv_layout = QVBoxLayout(uv_widget)
+        uv_layout.setContentsMargins(0,0,0,0)
+        uv_layout.setSpacing(4)
+        
+        # Icon & Title (UV)
+        
+        iwt = QWidget()
+        iwt_layout = QHBoxLayout(iwt)
+        iwt_layout.setContentsMargins(0,0,0,0)
+        iwt_layout.setSpacing(0)
+        iwt_layout.addWidget(svg("./Icons/air-quality.svg", 38, 38))
+        uv_index_title = text("Air Quality", "white", poppins("semi bold"), 15, iwt)
+        uv_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px;")
+        iwt_layout.addWidget(uv_index_title)
+        
+        # ====================
+        
+        
+        uv_layout.addWidget(iwt, alignment=Qt.AlignCenter)
+        uv_layout.addStretch(1)
+        uv_layout.addWidget(text(str(round(int(self.aqi_index))), "white", poppins("semi bold"), 40, uv_widget), alignment=Qt.AlignCenter)
+        uv_layout.addStretch(1)
+
+        if self.aqi_index == 1:
+            uv_desc = text("Good", "white", poppins("semi bold"), 12, uv_widget)
+        elif self.aqi_index == 2:
+            uv_desc = text("Fair", "white", poppins("semi bold"), 12, uv_widget)
+        elif self.aqi_index == 3:
+            uv_desc = text("Moderate", "white", poppins("semi bold"), 12, uv_widget)
+        elif self.aqi_index == 4:
+            uv_desc = text("Poor", "white", poppins("semi bold"), 12, uv_widget)
+        elif self.aqi_index > 4:
+            uv_desc = text("Very Poor", "white", poppins("semi bold"), 12, uv_widget)
+        
+        uv_desc.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
+        uv_layout.addWidget(uv_desc, alignment=Qt.AlignCenter)
+        uv_layout.addSpacing(20)
+        
+        
+        # Rainfall Column
+        rf_widget = QWidget()
+        rf_layout = QVBoxLayout(rf_widget)
+        rf_layout.setContentsMargins(0,0,0,0)
+        rf_layout.setSpacing(4)
+
+        # Icon & Title (Rainfall)
+                
+        rfw = QWidget()
+        rfw_layout = QHBoxLayout(rfw)
+        rfw_layout.setContentsMargins(0,0,0,0)
+        rfw_layout.setSpacing(0)
+        rfw_layout.addWidget(svg("./Icons/humidity.svg", 38, 38))
+        rf_index_title = text("Humidity", "white", poppins("semi bold"), 15, rfw)
+        rf_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px;")
+        rfw_layout.addWidget(rf_index_title)
+
+        # ====================
+
+        rf_layout.addWidget(rfw, alignment=Qt.AlignCenter)
+        rf_layout.addStretch(1)
+
+        h_d = QWidget()
+        h_d_layout = QVBoxLayout(h_d)
+        h_d_layout.setContentsMargins(0,0,0,0)
+        h_d_layout.setSpacing(3)
+
+        humidity_string = f"{self.humidity}%"
+        precip_text = text(humidity_string, "white", poppins("semi bold"), 40, h_d, 30)
+        precip_text.setFixedHeight(50)
+        h_d_layout.addWidget(precip_text, alignment=Qt.AlignCenter)
+
+        dew_string = f"Dew Point at {self.dew_point}\u00b0"
+        self.dew_point_text = text(dew_string, "white", poppins("semi bold"), 10, h_d, 30)
+        self.dew_point_text.setStyleSheet(self.dew_point_text.styleSheet() + "; color: rgba(255, 255, 255, 0.7);")
+        h_d_layout.addWidget(self.dew_point_text, alignment=Qt.AlignCenter)
+
+        rf_layout.addWidget(h_d, alignment=Qt.AlignCenter)
+
+        rf_layout.addStretch(1)
+
+        if self.humidity <= 15:
+            humidity_rating = "Unhealthy"
+        elif self.humidity <= 29:
+            humidity_rating = "Fair"
+        elif self.humidity <= 50:
+            humidity_rating = "Excellent"
+        elif self.humidity < 70:
+            humidity_rating = "Good"
+        else:
+            humidity_rating = "Okay"
+
+
+        rf_desc = text(humidity_rating, "white", poppins("semi bold"), 12, rf_widget, -15)
+        rf_desc.setStyleSheet("color: rgba(255, 255, 255, 0.7);")
+        rf_layout.addWidget(rf_desc, alignment=Qt.AlignCenter)
+        rf_layout.addSpacing(20)
+        
+        
+        # Feels like Column
+        
+        feels_widget = QWidget()
+        feels_layout = QVBoxLayout(feels_widget)
+        feels_layout.setContentsMargins(0,0,0,0)
+        feels_layout.setSpacing(0)
+        
+        # Icon & Title (Feels Like)
+        
+        iwt = QWidget()
+        #iwt.setStyleSheet("padding-right: 15px;")
+        iwt_layout = QHBoxLayout(iwt)
+        iwt_layout.setContentsMargins(0,0,0,0)
+        iwt_layout.setSpacing(0)
+        iwt_layout.addWidget(svg("./Icons/clear-day.svg", 36, 36))
+        feels_index_title = text("Daylight", "white", poppins("semi bold"), 15, iwt)
+        feels_index_title.setStyleSheet("color: rgba(255, 255, 255, 0.5); padding-top: 5px; padding-left: 0px; margin-left: 0px;")
+        iwt_layout.addWidget(feels_index_title)
+        
+        # -------------------------
+        
+        feels_layout.addWidget(iwt, alignment=Qt.AlignCenter)
+        
+        feels_layout.addStretch(1)
+
+        unit = load_settings()
+        is_fahrenheit = unit['units']['temperature'] == "F"
+
+        sunrise = QWidget()
+        sunrise_layout = QHBoxLayout(sunrise)
+        sunrise_layout.setContentsMargins(0,0,0,0)
+        sunrise_layout.setSpacing(8)
+        sunrise_layout.setAlignment(Qt.AlignCenter)
+
+        sunrise_icon = svg("./Icons/sunrise.svg", 60, 60, reverse=True)
+        sunrise_layout.addWidget(sunrise_icon, alignment=Qt.AlignVCenter)
+
+        print(len(self.sunrise))
+        sunrise_time = text(str(self.sunrise), "white", poppins("semi bold"), 20, sunrise)
+        sunrise_time.setStyleSheet(sunrise_time.styleSheet() + "; padding-top: 8px;")
+        sunrise_layout.addWidget(sunrise_time, alignment=Qt.AlignVCenter)
+
+        sunset = QWidget()
+        sunset_layout = QHBoxLayout(sunset)
+        sunset_layout.setContentsMargins(0,0,0,0)
+        sunset_layout.setSpacing(8)
+
+        sunset_icon = svg("./Icons/sunset.svg", 60, 60, reverse=True)
+        sunset_layout.addWidget(sunset_icon, alignment=Qt.AlignVCenter)
+
+        print(len(self.sunset))
+        sunset_time = text(str(self.sunset), "white", poppins("semi bold"), 20, sunset)
+        sunset_time.setStyleSheet(sunset_time.styleSheet() + "; padding-top: 8px;")
+        sunset_layout.addWidget(sunset_time, alignment=Qt.AlignVCenter)
+
+        feels_layout.addStretch()
+        feels_layout.addWidget(sunrise, alignment=Qt.AlignCenter)
+        feels_layout.addWidget(sunset, alignment=Qt.AlignCenter)
+        feels_layout.addStretch()
+
+        feels_layout.addSpacing(50)
+
+
+        uv_widget.setMinimumHeight(200)
+        rf_widget.setMinimumHeight(200)
+        feels_widget.setMinimumHeight(200)
+        
+        column_layout.addWidget(uv_widget, 1)
+        column_layout.addSpacing(10)
+        column_layout.addWidget(rf_widget, 1)
+        column_layout.addSpacing(10)
+        column_layout.addWidget(feels_widget, 1)
+        
+        
+        self.has_layout.addWidget(column_widget)
+
+        
         
         
     def status_bar(self):
@@ -2140,12 +2470,31 @@ class MainWindow(QMainWindow):
                             sub.widget().deleteLater()
         
 
-        if str(self.current_condition).lower() == "clouds":
-                condition = svg("./Icons/cloudy.svg", 190, 190)
-        elif str(self.current_condition).lower() == "clear":
-            condition = svg("./Icons/clear-day.svg", 190, 190)
+
+        if str(self.current_condition).lower() == "clear":
+            condition = svg("./Icons/clear-day.svg" if self.ismorning else "./Icons/clear-night.svg", 190, 190)
         elif str(self.current_condition).lower() == "rain":
             condition = svg("./Icons/rain.svg", 190, 190)
+        elif "cloud" in str(self.current_condition).lower() or "few" in str(self.current_condition).lower() or "scattered" in str(self.current_condition).lower():
+            condition = svg("./Icons/partly-cloudy-day.svg" if self.ismorning else "./Icons/partly-cloudy-night.svg", 190, 190)
+        elif str(self.current_condition).lower() == "clouds":
+                condition = svg("./Icons/cloudy.svg", 190, 190)
+        elif str(self.current_condition).lower() == "snow":
+            condition = svg("./Icons/snow.svg", 190, 190)
+        elif "thunderstorm" in str(self.current_condition).lower():
+            condition = svg("./Icons/thunderstorm.svg", 190, 190)
+        elif "overcast" in str(self.current_condition).lower():
+            condition = svg("./Icons/overcast.svg", 190, 190)
+        elif "fog" in str(self.current_condition).lower():
+            condition = svg("./Icons/fog.svg", 190, 190)
+        elif "dust" in str(self.current_condition).lower():
+            condition = svg("./Icons/dust.svg", 190, 190)
+        elif "haze" in str(self.current_condition).lower():
+            condition = svg("./Icons/haze.svg", 190, 190)
+        elif "light" or "drizzle" in str(self.current_condition).lower():
+            condition = svg("./Icons/light-rain.svg", 190, 190)
+        elif "hail" in str(self.current_condition).lower():
+            condition = svg("./Icons/hail.svg", 190, 190)
         #condition.setStyleSheet("margin-top: 22px;")
 
         unit = load_settings()
@@ -2172,9 +2521,19 @@ class MainWindow(QMainWindow):
         info_layout.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         info_layout.setSpacing(5)
         
-        condition = text(self.current_condition, "white", poppins("semi bold"), 45, self.status)
-        condition.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        condition.setMaximumHeight(70)
+        self.condition = text(self.current_condition, "white", poppins("semi bold"), 45, self.status)
+
+        if len(self.condition.text()) > 10:
+            self.condition.deleteLater()
+            self.condition = text(self.current_condition, "white", poppins("semi bold"), 38, self.status)
+
+        
+        self.condition.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.condition.setMaximumHeight(70)
+
+        if "clouds" in str(self.current_condition).lower():
+            self.condition.setText("Cloudy")
+        
         
         if self.initial_place:
             location = text(str(self.current_location_name), "white", poppins("semi bold"), 20, self.status)
@@ -2190,12 +2549,12 @@ class MainWindow(QMainWindow):
         location.setStyleSheet(location.styleSheet() + "; margin-right: 1px;")
 
         info_layout.addWidget(location)
-        info_layout.addWidget(condition)
+        info_layout.addWidget(self.condition)
         
         self.status_layout.addLayout(info_layout)
 
         self.status.show()
-        condition.show()
+        self.condition.show()
         temp.show()
         location.show()
     
