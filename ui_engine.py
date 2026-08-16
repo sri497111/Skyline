@@ -37,6 +37,8 @@ class Card(QFrame):
         self.setFixedHeight(h)
         
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
         
         path = QPainterPath()
 
@@ -99,7 +101,7 @@ class Card(QFrame):
             target_w = target.width() if target.width() > 0 else self.window_size[0] if self.window_size else target.width()
             target_h = target.height() if target.height() > 0 else self.window_size[1] if self.window_size else target.height()
         
-        if getattr(self, '_cached_tw', None) == target_w and getattr(self, '_cached_th', None) == target_h:
+        if getattr(self, '_cached_tw', None) != target_w and getattr(self, '_cached_th', None) !=    target_h:
             self._cached_tw = target_w
             self._cached_th = target_h
             self.scaled = self.pixmap.scaled(target_w, target_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -155,8 +157,22 @@ class Card(QFrame):
                 painter.fillRect(dx+valid_rect.width(), dy+valid_rect.height(), w - (dx + valid_rect.width()), h - (dy + valid_rect.height()), sub_pixmap.copy(sub_pixmap.width() - 1, sub_pixmap.height() - 1, 1, 1).toImage().pixelColor(0, 0))
 
             painter.end()
+
+        smooth_pixmap = QPixmap(crop.size())
+        smooth_pixmap.fill(Qt.transparent)
+
+        painter = QPainter(smooth_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
         
-        self.bg.setPixmap(crop)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(smooth_pixmap.rect()), self.radius, self.radius)
+
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, crop)
+        painter.end()
+        
+        self.bg.setPixmap(smooth_pixmap)
 
         if hasattr(self, 'rain_shader'):
             self.rain_shader.set_pixmap(crop)
@@ -187,7 +203,8 @@ class Card(QFrame):
 
         self.path = QPainterPath()
         self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
-        self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
+        
+        #self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
     
@@ -272,14 +289,41 @@ class RegularCard(QFrame):
             self.rain_shader.raise_()
 
         
-        
+
     def updatePixmap(self):
         h = self.height()
         w = self.width()
+
+        if w <= 0 or h <= 0: return
+
+        pid = id(self.pixmap)
+        if (getattr(self, '_cached_pid', None) == pid and
+            getattr(self, '_cached_w', None) == w and
+            getattr(self, '_cached_h', None) == h):
+            return
+        
+        self._cached_pid = pid
+        self._cached_w = w
+        self._cached_h = h
         
         scaled = self.pixmap.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         crop = scaled.copy(0,0, w,h)
-        self.bg.setPixmap(crop)
+
+        smooth_pixmap = QPixmap(crop.size())
+        smooth_pixmap.fill(Qt.transparent)
+
+        painter = QPainter(smooth_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(smooth_pixmap.rect()), self.radius, self.radius)
+
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, crop)
+        painter.end()
+
+        self.bg.setPixmap(smooth_pixmap)
 
         if self.rain_effect:
             self.rain_shader.set_pixmap(crop)
@@ -307,7 +351,8 @@ class RegularCard(QFrame):
 
         self.path = QPainterPath()
         self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
-        self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
+        
+        #self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
             
@@ -784,13 +829,13 @@ def mouse_release_dim(obj, callback=None):
     return wrapper
 
 class WeatherCard(RegularCard):
-    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition="Clear", current_temp=72, hi=67, low=99, description=""):
-        super().__init__(parent, background, 200, rain_effect=True if "rain" in current_condition.lower() else False)
+    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition=800, current_temp=72, hi=67, low=99, description="", morning=None):
+        super().__init__(parent, background, 200, rain_effect=True if current_condition in (500, 501, 502, 503, 504, 520, 521, 522, 531) or current_condition in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232) or current_condition in (300, 301, 302, 310, 311, 312, 321) else False)
 
         self.setFixedWidth(600)
         self.setCursor(Qt.PointingHandCursor)
 
-
+    
         self.cond = str(current_condition)
 
         self.batch_select = False
@@ -804,7 +849,7 @@ class WeatherCard(RegularCard):
         self.hi = hi
         self.low = low
 
-        print(self.description)
+        self.ismorning = morning
 
         self.weather_layout = QHBoxLayout(self)
         self.weather_layout.setContentsMargins(50,25,50,25)
@@ -821,6 +866,10 @@ class WeatherCard(RegularCard):
         
         icon_and_name_layout.addWidget(self.location_name, alignment=Qt.AlignTop | Qt.AlignLeft)
 
+        self.current_condition = current_condition
+        self.updateWeatherBG()
+        
+
         self.condition_label = text(str(self.cond), "white", poppins("semi bold"), 15, self)
         self.condition_label.setStyleSheet(self.condition_label.styleSheet() + "; margin-top: 0px; padding-top: 0px;")
         icon_and_name_layout.addWidget(self.condition_label, alignment=Qt.AlignTop | Qt.AlignLeft)
@@ -830,19 +879,6 @@ class WeatherCard(RegularCard):
         self.weather_layout.addWidget(icon_and_name, alignment=Qt.AlignTop)
         self.weather_layout.addStretch(1)
 
-        if "clear" in self.cond.lower():
-            self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
-        elif "cloud" in self.cond.lower() and "few" in description.lower() or "scattered" in description.lower():
-            self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
-            self.cond = "Partly Cloudy"
-            self.condition_label.setText("Partly Cloudy")
-        elif "cloud" in self.cond.lower():
-            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
-        elif "rain" in self.cond.lower():
-            self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
-            self.dark.raise_()
-
-        
         temp = QWidget()
         temp_layout = QVBoxLayout(temp)
         temp_layout.setContentsMargins(0,0,0,0)
@@ -863,21 +899,127 @@ class WeatherCard(RegularCard):
         self.weather_layout.addWidget(temp)
 
     def updateWeatherBG(self):
+        current_condition = self.current_condition
 
-        if "-" not in self.cond:
-            description = getattr(self, "description", "")
-
-            if "clear" in self.cond.lower():
-                self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
-            elif "cloud" in self.cond.lower() and "few" in description.lower() or "scattered" in description.lower():
-                self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
+        try:
+            if current_condition == 800:
+                self.cond = "Clear"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/clear/dash2.png")
+            elif current_condition == 804:
+                self.cond = "Cloudy"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/cloudy/dash2.png")
+            elif current_condition in (801, 802):
                 self.cond = "Partly Cloudy"
-                self.condition_label.setText("Partly Cloudy")
-            elif "cloud" in self.cond.lower():
-                self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
-            elif "rain" in self.cond.lower():
-                self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
-            
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
+            elif current_condition == 803:
+                self.cond = "Mostly Cloudy"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/partly/dash4.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
+            elif current_condition in (500, 501, 502, 503, 504, 520, 521, 522, 531):
+                if current_condition == 500:
+                    self.cond = "Light Rain"
+                elif current_condition == 501:
+                    self.cond = "Rain"
+                elif current_condition in (502, 503, 504):
+                    self.cond = "Heavy Rain"
+                elif current_condition in (520, 521, 522, 531):
+                    self.cond = "Showers"
+                else:
+                    self.cond = "Rain"
 
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/cloudy/dash2.png")
+            
+            elif current_condition in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232):
+                self.cond = "Thunderstorm"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/thunderstorm/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/thunderstorm/dash2.png")
+            
+            elif current_condition in (300, 301, 302, 310, 311, 312, 321):
+                self.cond = "Drizzle"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/cloudy/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/cloudy/dash2.png")
+            
+            elif current_condition in (600, 601, 602, 612, 615, 616, 620, 621, 621):
+                self.cond = "Snow"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/snow/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/snow/dash2.png")
+            
+            elif current_condition == 611:
+                self.cond = "Hail"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/hail/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/hail/dash2.png")
+                
+            elif current_condition == 721:
+                self.cond = "Haze"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/fog/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/fog/dash2.png")
+            
+            elif current_condition == 731:
+                self.cond = "Dust"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/dust/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/dust/dash2.png")
+
+            elif current_condition in (701, 741):
+                self.cond = "Fog"
+                if self.ismorning:
+                    self.pixmap = QPixmap("./Backgrounds/fog/dash1.png")
+                else:
+                    self.pixmap = QPixmap("./Backgrounds/fog/dash2.png")
+            else:
+                print("NO PIXMAP SET")
+        
+        except:
+            self.pixmap = QPixmap("./Backgrounds/error-dash.png")
+
+        is_raining = current_condition in (500, 501, 502, 503, 504, 520, 521, 522, 531) or \
+            current_condition in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232) or \
+            current_condition in (300, 301, 302, 310, 311, 312, 321)
+        
+        if is_raining and not self.rain_effect:
+            self.rain_effect = True
+            self.rain_shader = RainShaderOverlay(self, self.pixmap)
+            self.rain_shader.move(0, 0)
+
+            self.rain_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+            self.rain_shader.show()
+            self.rain_shader.lower()
+            self.bg.lower()
+
+        elif not is_raining and self.rain_effect:
+            self.rain_effect = False
+            if hasattr(self, "rain_shader"):
+                self.rain_shader.hide()
+                self.rain_shader.deleteLater()
+                delattr(self, "rain_shader")
+            
+        self.bg.setPixmap(self.pixmap)
         self.updatePixmap()
+        self.update()
 

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
+  <defs>
+    <linearGradient id="electricAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffca28" />
+      <stop offset="35%" stop-color="#ffa726" />
+      <stop offset="70%" stop-color="#fb8c00" />
+      <stop offset="100%" stop-color="#f57c00" />
+    </linearGradient>
+    <linearGradient id="glossHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#ffb74d" stop-opacity="0.1" />
+    </linearGradient>
+    <linearGradient id="barGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffa726" />
+      <stop offset="100%" stop-color="#f57c00" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(0, 21)">
+    <path d="M 22 46 L 78 46 A 8 8 0 0 0 86 38 A 36 36 0 0 0 14 38 A 8 8 0 0 0 22 46 Z" 
+          fill="url(#electricAmber)" 
+          stroke="url(#glossHighlight)" 
+          stroke-width="1.5" />
+    <path d="M 28 42 L 72 42" stroke="#ffffff" stroke-width="1" stroke-opacity="0.25" stroke-linecap="round" />
+    <rect x="24" y="51" width="52" height="6" rx="3" 
+          fill="url(#barGradient)" 
+          stroke="#ffe082" 
+          stroke-width="0.75" 
+          stroke-opacity="0.3" />
+  </g>
+</svg>

@@ -1,0 +1,11 @@
+clear (done)
+cloudy (done)
+drizzle (rain) 
+dust (edits) (done)
+fog (edited) (done)
+hail (rain) (done)
+haze (fog) (done)
+overcast (cloudy)
+snow (rain) (done)
+thunderstorm (rain) (done)
+partly cloudy

@@ -2,11 +2,11 @@
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy, QLineEdit
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop, QEvent, QParallelAnimationGroup, QPoint, QThread
+from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop, QEvent, QParallelAnimationGroup, QPoint, QThread, QRectF
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-from PyQt5.QtGui import QPixmap, QPainterPath, QRegion, QFont
+from PyQt5.QtGui import QPixmap, QPainterPath, QRegion, QFont, QPainter, QBrush, QIcon
 from PyQt5 import sip
 
 # Modules
@@ -16,12 +16,13 @@ from settings import load_settings, update_settings, check_theme
 from system import internet_check
 from location import *
 
-# System
+# System    
 from system import *
 import webbrowser
 import subprocess
 import platform
 import datetime
+import random
 import sys
 import requests
 import os
@@ -153,26 +154,127 @@ class MainWindow(QMainWindow):
 
 
     def set_background_image(self, condition, desc):
-        if "clear" in condition.lower():
-            self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred.png")
-            self.element = QPixmap("./Backgrounds/clear/element.png")
-        elif "cloud" in condition.lower() and "few" in desc.lower() or "scattered" in desc.lower():
+        if self.current_weather_id == 800:
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred.png")
+                self.element = QPixmap("./Backgrounds/clear/element.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred1.png")
+                self.element = QPixmap("./Backgrounds/clear/element1.png")
+        
+        elif self.current_weather_id == 804:
+            self.current_condition = "Cloudy"
+            if self.ismorning:
+                choice = random.choice([1, 2])
+                if choice == 1:
+                    self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
+                    self.element = QPixmap("./Backgrounds/cloudy/element.png")
+                else:
+                    self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred2.png")
+                    self.element = QPixmap("./Backgrounds/cloudy/element2.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred1.png")
+                self.element = QPixmap("./Backgrounds/cloudy/element1.png")
+
+        elif self.current_weather_id == 801 or self.current_weather_id == 802:
             self.current_condition = "Partly Cloudy"
             if self.ismorning:
-                self.current_condition = "Partly Cloudy"
-                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
-                self.element = QPixmap("./Backgrounds/partly/element2.png")
-            else:
                 self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred1.png")
                 self.element = QPixmap("./Backgrounds/partly/element1.png")
-        elif "cloud" in condition.lower():
-            self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
-            self.element = QPixmap("./Backgrounds/cloudy/element.png")
-        elif "Rain" in condition:
-            self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
-            self.element = QPixmap("./Backgrounds/cloudy/element.png")
-        
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
+                self.element = QPixmap("./Backgrounds/partly/element2.png")
+        elif self.current_weather_id == 803:
+            self.current_condition = "Mostly Cloudy"
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred1.png")
+                self.element = QPixmap("./Backgrounds/partly/element1.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
+                self.element = QPixmap("./Backgrounds/partly/element2.png")
 
+        elif self.current_weather_id in (500, 501, 502, 503, 504, 520, 521, 522, 531):
+            if self.current_weather_id == 500:
+                self.current_condition = "Light Rain"
+            elif self.current_weather_id == 501:
+                self.current_condition = "Rain"
+            elif self.current_weather_id in (502, 503, 504):
+                self.current_condition = "Heavy Rain"
+            elif self.current_weather_id in (520, 521, 522, 531):
+                self.current_condition = "Showers"
+            else:
+                self.current_condition = "Rain"
+
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
+                self.element = QPixmap("./Backgrounds/cloudy/element.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred1.png")
+                self.element = QPixmap("./Backgrounds/cloudy/element1.png")
+        
+        elif self.current_weather_id in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232):
+            self.current_condition = "Thunderstorm"
+            if self.ismorning:
+                choice = random.choice([1, 2])
+                if choice == 1:
+                    self.bg_pixmap == QPixmap("./Backgrounds/thunderstorm/blurred.png")
+                    self.element = QPixmap("./Backgrounds/thunderstorm/element.png")
+                else:
+                    self.bg_pixmap = QPixmap("./Backgrounds/thunderstorm/blurred1.png")
+                    self.element = QPixmap("./Backgrounds/thunderstorm/element1.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/thunderstorm/blurred2.png")
+                self.element = QPixmap("./Backgrounds/thunderstorm/element2.png")
+        
+        elif self.current_weather_id in (300, 301, 302, 310, 311, 312, 321):
+            self.current_condition = "Drizzle"
+            self.bg_pixmap = QPixmap("./Backgrounds/cloudy/blurred.png")
+            self.element = QPixmap("./Backgrounds/cloudy/element.png")
+
+        elif self.current_weather_id in (600, 601, 602, 611, 612, 615, 616, 620, 621, 621):
+            self.current_condition = "Snow"
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/snow/blurred.png")
+                self.element = QPixmap("./Backgrounds/snow/element.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/snow/blurred1.png")
+                self.element = QPixmap("./Backgrounds/snow/element1.png")
+
+        elif self.current_weather_id == 611:
+            self.current_condition = "Hail"
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/hail/blurred.png")
+                self.element = QPixmap("./Backgrounds/hail/element.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/hail/blurred1.png")
+                self.element = QPixmap("./Backgrounds/hail/element1.png")
+        
+        elif self.current_weather_id == 721:
+            self.current_condition = "Haze"
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/fog/blurred.png")
+                self.element = QPixmap("./Backgrounds/fog/element.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/fog/blurred1.png")
+                self.element = QPixmap("./Backgrounds/fog/element1.png")
+
+        elif self.current_weather_id == 731:
+            self.current_condition = "Dust"
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/dust/blurred.png")
+                self.element = QPixmap("./Backgrounds/dust/element.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/dust/blurred1.png")
+                self.element = QPixmap("./Backgrounds/dust/element1.png")
+
+        elif self.current_weather_id in (701, 741):
+            self.current_condition = "Fog"
+            if self.ismorning:
+                self.bg_pixmap = QPixmap("./Backgrounds/fog/blurred.png")
+                self.element = QPixmap("./Backgrounds/fog/element.png")
+            else:
+                self.bg_pixmap = QPixmap("./Backgrounds/fog/blurred1.png")
+                self.element = QPixmap("./Backgrounds/fog/element1.png")
         self.weather_bg_label.setPixmap(self.bg_pixmap)
 
         self.anim_weather_in = QPropertyAnimation(self.weather_fade_effect, b'opacity')
@@ -210,6 +312,7 @@ class MainWindow(QMainWindow):
 
         self.current_condition = str(self.current_weather_data["weather"][0]["main"])
         self.current_weather_description = str(self.current_weather_data["weather"][0]["description"])
+        self.current_weather_id = int(self.current_weather_data["weather"][0]["id"])
         
         self.weather_forecast_data = data['forecast']
         self.weather_hourly_forecast_data = parse_hourly_forecast(self.weather_forecast_data, increment=5)
@@ -230,7 +333,7 @@ class MainWindow(QMainWindow):
         self.loc = current_location("coords")
         self.lat = self.loc[0]
         self.lon = self.loc[1]
-        humid = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={self.lat}&longitude={self.lon}&current=relative_humidity_2m,dew_point_2m").json()
+        humid = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={self.location[0]}&longitude={self.location[1]}&current=relative_humidity_2m,dew_point_2m").json()
         
         self.humidity = int(humid['current']['relative_humidity_2m'])
 
@@ -397,7 +500,8 @@ class MainWindow(QMainWindow):
                 location_name = current_info.get("name", f"Card {i}")
                 
                 weather_list = current_info.get("weather", [])
-                condition = weather_list[0].get("main", "N/A") if weather_list else "N/A"
+                condition = weather_list[0].get("id", "N/A") if weather_list else "N/A"
+
                 desc = weather_list[0].get("description", "N/A") if weather_list else "N/A"
                 
                 main_data = current_info.get("main", {})
@@ -409,7 +513,10 @@ class MainWindow(QMainWindow):
                 hi = str(int(round(daily_max_list[0]))) if daily_max_list else "N/A"
                 low = str(int(round(daily_min_list[0]))) if daily_min_list else "N/A"
 
-                self.dash_weather.append([location_name, condition, current_temp, hi, low, desc])
+                sys_data = current_info.get("sys", {})
+                ismorning = sys_data.get("sunrise", 0) <= datetime.datetime.now(datetime.timezone.utc).timestamp() < sys_data.get("sunset", 0)
+
+                self.dash_weather.append([location_name, condition, current_temp, hi, low, desc, ismorning])
 
 
 
@@ -423,6 +530,7 @@ class MainWindow(QMainWindow):
             
             if hasattr(self, 'dashboardpop') and self.dashboardpop is not None and not sip.isdeleted(self.dashboardpop):
                 if hasattr(self, 'dashboard_container') and not sip.isdeleted(self.dashboard_container):
+                    
                     if self.yv > 0:
                         self.yv = 0
                         self.v = 0
@@ -444,8 +552,8 @@ class MainWindow(QMainWindow):
                 if self.yv > 0:
                     self.yv = 0
                     self.v = 0
-                elif self.yv < -1720:
-                    self.yv = -1720
+                elif self.yv < -1820:
+                    self.yv = -1820
                     self.v = 0
                 
                 self.sensitvity = 0.03
@@ -605,17 +713,17 @@ class MainWindow(QMainWindow):
 
             search_layout.addWidget(self.location_search, alignment=Qt.AlignVCenter)
 
-            self.suggestions = Card(self.searchpop, self.element, 400, raise_dark=False)
+            self.suggestions = Card(self.searchpop, self.element, 400, raise_dark=False, radius=45)
 
             self.suggestions.dark.setStyleSheet(f"""
                 background: rgba(0,0,0,50);
-                border-radius: {55}px;
+                border-radius: {45}px;
             """)
 
             if theme == 0:
                 self.suggestions.dark.setStyleSheet(f"""
                     background: rgba(0,0,0,50);
-                    border-radius: {35}px;
+                    border-radius: {45}px;
                 """)
             else:
                 self.suggestions.dark.setStyleSheet(f"""
@@ -846,7 +954,7 @@ class MainWindow(QMainWindow):
             
             self.settingspop.destroyed.connect(cleanup)
 
-            self.settings_card = Card(self.settingspop, self.element, 400, raise_dark=False)
+            self.settings_card = Card(self.settingspop, self.element, 400, raise_dark=False, radius=45)
             self.settings_card.setFixedWidth(700)
 
             theme = check_theme()
@@ -911,23 +1019,23 @@ class MainWindow(QMainWindow):
             if index == 0: 
                 self.settings_card.dark.setStyleSheet('''
                         background: rgba(0,0,0,50);
-                        border-radius: 30px;                      
+                        border-radius: 45px;                      
                 ''')
                 if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
                 if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
                 if getattr(self, 'length_radio', None): self.length_radio.radio_card.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
-                if getattr(self, 'credits', None): self.credits.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 35px;")
+                if getattr(self, 'credits', None): self.credits.dark.setStyleSheet("background: rgba(0,0,0,70); border-radius: 20px;")
             
             else:
                 self.settings_card.dark.setStyleSheet('''
                         background: rgba(255,255,255,10);
-                        border-radius: 30px;                      
+                        border-radius: 45px;                      
                 ''')
 
                 if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
                 if getattr(self, 'theme_radio', None): self.theme_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
                 if getattr(self, 'length_radio', None): self.length_radio.radio_card.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
-                if getattr(self, 'credits', None): self.credits.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 35px;")
+                if getattr(self, 'credits', None): self.credits.dark.setStyleSheet("background: rgba(255,255,255,30); border-radius: 20px;")
 
             self.settings_card.updatePixmap()
             if getattr(self, 'temp_radio', None): self.temp_radio.radio_card.updatePixmap()
@@ -938,10 +1046,8 @@ class MainWindow(QMainWindow):
         QApplication.processEvents()
     
     def load_map_async(self, index):
-        theme = "dark" if index == 0 else "light"
-
         map_thread = QThread(self)
-        map_worker = MapWorker(self.location, theme, self.precise)
+        map_worker = MapWorker(self.location, "light", self.precise)
         map_worker.moveToThread(map_thread)
         
         self.active_threads.append(map_thread)
@@ -1158,17 +1264,19 @@ class MainWindow(QMainWindow):
                         except IndexError:
                             pass
 
+                        try:
+                            ismorning = self.dash_weather[idx-1][6]
+                        except IndexError:
+                            pass
+
                     else:
                         current_weather = "..."
                         current_temp = "--"
                         hi = "--"
                         low = "--"
-
-
+                        ismorning = True
                     
-                    card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low, description=current_desc)
-                    
-                    
+                    card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low, description=current_desc, morning=ismorning)
 
                     card.location_name = card_info.get("location_name", "")
                     card.lat = card_info.get("lat", 0)
@@ -1230,6 +1338,8 @@ class MainWindow(QMainWindow):
             for card in self.dash_cards:
                 if card is not sip.isdeleted(card):
                     card.updatePixmap()
+            if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
+                self.add_card_btn.updatePixmap()
 
     def update_dashboard(self):
         if not hasattr(self, 'dash_cards') or not self.dash_cards:
@@ -1250,7 +1360,8 @@ class MainWindow(QMainWindow):
             weather_list = current_info.get("weather", [])
             
             if weather_list and isinstance(weather_list[0], dict):
-                condition = weather_list[0].get("main", "N/A")
+                condition_id = weather_list[0].get("id", "N/A")
+                condition_main = weather_list[0].get("main", "N/A")
                 desc = weather_list[0].get("description", "N/A")
             else:
                 condition = "N/A"
@@ -1258,6 +1369,9 @@ class MainWindow(QMainWindow):
 
             main_data = current_info.get("main", {})
             temp = main_data.get("temp", "N/A") if isinstance(main_data, dict) else "N/A"
+
+            sys_data = current_info.get("sys", {})
+            card.ismorning = sys_data.get("sunrise", 0) <= datetime.datetime.now(datetime.timezone.utc).timestamp() < sys_data.get("sunset", 0)
 
             daily_max = hi_lo_info.get("daily", {}).get('temperature_2m_max', 0)
             daily_min = hi_lo_info.get("daily", {}).get('temperature_2m_min', 0)
@@ -1267,9 +1381,10 @@ class MainWindow(QMainWindow):
             current_temp = round(temp) if isinstance(temp, (int,float)) else "N/A"
 
             if hasattr(card, "condition_label"):
-                card.condition_label.setText(str(condition))
-                card.cond = str(condition)
+                card.condition_label.setText(str(condition_main))
+                card.cond = str(condition_main)
                 card.description = str(desc) 
+                card.current_condition = condition_id
                 card.updateWeatherBG()
             if hasattr(card, "temp_label"):
                 card.temp_label.setText(f"{current_temp}\u00b0")
@@ -1484,7 +1599,8 @@ class MainWindow(QMainWindow):
                 for idx, c in enumerate(self.dash_cards):
                     c.index = idx
                     target_y = (idx * rowh) + 50
-                    self.glide(c, target_y)
+                    if c != card:
+                        self.glide(c, target_y)
 
             
             elif current < len(self.dash_cards) - 1 and new_y > (current * rowh) + (rowh / 2):
@@ -1493,7 +1609,8 @@ class MainWindow(QMainWindow):
                 for idx, c in enumerate(self.dash_cards):
                     c.index = idx
                     target_y = (idx * rowh) + 50
-                    self.glide(c, target_y)
+                    if c != card:
+                        self.glide(c, target_y)
 
             else:
                 pass
@@ -1525,19 +1642,7 @@ class MainWindow(QMainWindow):
             
             self.glide(card, target_y, target_x=card.original_x)
 
-            for pos, card in enumerate(self.dash_cards):
-                self.dashboard_layout.removeWidget(card)
-                self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
-
-                if hasattr(card, 'label'):
-                    text_str = card.location_name if card.location_name else "Location"
-                    card.label.setText(text_str)
-
-            if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
-                self.dashboard_layout.removeWidget(self.add_card_btn)
-                self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
-            
-            card.updatePixmap()
+            QTimer.singleShot(210, self.rebuild_dash)
             self.save_dashboard()
 
 
@@ -1657,7 +1762,10 @@ class MainWindow(QMainWindow):
         
 
     def daily(self):
-        self.daily_forecast = Card(self.viewport, self.element, 500, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        if len(self.weather_daily_forecast_data) > 5:
+            self.viewport.setGeometry(0, 0, 878, 2390)
+            self.viewport.update()
+        self.daily_forecast = Card(self.viewport, self.element, 590 if len(self.weather_daily_forecast_data) > 5 else 490, rain_effect=True if "rain" in self.current_condition.lower() else False)
         self.daily_forecast.setContentsMargins(35,0,0,0)
         self.daily_layout = QVBoxLayout(self.daily_forecast)
         self.populate_daily_forecast(self.weather_daily_forecast_data)
@@ -1675,31 +1783,53 @@ class MainWindow(QMainWindow):
         is_fahrenheit = unit['units']['temperature'] == "F"
         is_mph = unit['units']['speed'] == "MPH"
         
-        for i in range(5):
+        for i in range(len(data)):
             horizontal_widget = QWidget()
             horizontal_widget.setFixedHeight(90)
             
             hbox = QHBoxLayout(horizontal_widget)
             hbox.setContentsMargins(5,0,0,0)
             hbox.setSpacing(25)
+            print(self.current_weather_id)
             
             cond = data[i][1]
-            if cond.lower() == "clear":
-                cond = svg("./Icons/clear-day.svg", 64, 64)
 
-            elif cond.lower() == "clouds":
+            if cond == 800:
+                cond = svg("./Icons/clear-day.svg", 64, 64)
+            elif cond == 804:
                 cond = svg("./Icons/cloudy.svg", 64, 64)
-            elif cond.lower() == "rain":
-                cond = svg("./Icons/rain.svg", 64, 64)
+            elif cond in (801, 802, 803):
+                cond = svg("./Icons/partly-cloudy-day.svg", 64, 64)
+            elif cond in (500, 501, 502, 503, 504, 520, 521, 522, 531):
+                if cond == 500:
+                    cond = svg("./Icons/drizzle.svg", 64, 64)
+                else:
+                    cond = svg("./Icons/rain.svg", 64, 64)
+            elif cond in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232):
+                cond = svg("./Icons/thunderstorm.svg", 64, 64)
+            elif cond in (300, 301, 302, 310, 311, 312, 321):
+                cond = svg("./Icons/drizzle.svg", 64, 64)
+            elif cond in (600, 601, 602, 611, 612, 615, 616, 620, 621, 621):
+                cond = svg("./Icons/snowflake.svg", 64, 64)
+            elif cond == 611:
+                cond = svg("./Icons/hail.svg", 64, 64)
+            elif cond == 721:
+                cond = svg("./Icons/haze.svg", 64, 64)
+            elif cond == 731:
+                cond = svg("./Icons/dust.svg", 64, 64)
+            elif cond in (701, 741):
+                cond = svg("./Icons/fog.svg", 64, 64)
             else:
-                print(cond + " error dont have this one!")
+                print(f"No icon for {cond}")
+                return
+            
             
             cond.setStyleSheet("padding-bottom: 8px;")
             cond.setFixedWidth(64)
             hbox.addWidget(cond)
             
             day = data[i][0]
-            day = text(day, "white", poppins("semi bold"), 20, horizontal_widget)
+            day = text(day if i != 0 else "Today", "white", poppins("semi bold"), 20, horizontal_widget)
             day.setFixedWidth(200)
             day.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             
@@ -1967,7 +2097,21 @@ class MainWindow(QMainWindow):
                     condition = svg("./Icons/partly-cloudy-night.svg", 83, 83)
             elif str(forecast_data[i][1]).lower() == "clouds" or str(forecast_data[i][1]).lower() == "overcast" or str(forecast_data[i][1]).lower() == "cloudy":
                 condition = svg("./Icons/cloudy.svg", 83, 83)
-            
+            elif str(forecast_data[i][1]).lower() == "snow":
+                condition = svg("./Icons/snowflake.svg", 83, 83)
+            elif "thunderstorm" in str(forecast_data[i][1]).lower():
+                condition = svg("./Icons/thunderstorm.svg", 83, 83)
+            elif "fog" in str(forecast_data[i][1]).lower():
+                condition = svg("./Icons/fog.svg", 83, 83)
+            elif "dust" in str(forecast_data[i][1]).lower():
+                condition = svg("./Icons/dust.svg", 83, 83)
+            elif "haze" in str(forecast_data[i][1]).lower():
+                condition = svg("./Icons/haze.svg", 83, 83)
+            elif "light" or "drizzle" in str(forecast_data[i][1]).lower():
+                condition = svg("./Icons/rain.svg", 83, 83)
+            elif "hail" in str(forecast_data[i][1]).lower():
+                condition = svg("./Icons/hail.svg", 83, 83)
+
             unit = load_settings()
             is_fahrenheit = unit['units']['temperature'] == "F"
 
@@ -1999,22 +2143,37 @@ class MainWindow(QMainWindow):
         self.map_layout.setAlignment(Qt.AlignCenter)
         
         self.map_label = QLabel()
-        
-        pixmap = self.map_pixmap.scaled(778, 305, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        self.map_label.setPixmap(pixmap)
         self.map_label.setFixedSize(778, 305)
-        self.map_label.setScaledContents(True)
+
+        self.map_label.setStyleSheet("background: transparent;")
+        self.map_label.setScaledContents(False)
+
+        scaled_pix = self.map_pixmap.scaled(778, 305, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        raw_pix = scaled_pix.copy(0,0, 778, 305)
+
+        smooth_pixmap = QPixmap(778, 305)
+        smooth_pixmap.fill(Qt.transparent)
+
+        painter = QPainter(smooth_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(0, 0, 778, 305), 45, 45)
+
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, raw_pix)
+        painter.end()
+
+
+        self.map_label.setPixmap(smooth_pixmap)
         
         self.click_event = QPushButton(self.map_label)
         self.click_event.setStyleSheet("background-color: transparent; border: none;")
         self.click_event.clicked.connect(self.popup)
         
         self.click_event.setGeometry(0,0,778,305)
-        
-        path = QPainterPath()
-        path.addRoundedRect(0,0, 778, 305, 45, 45)
-        self.map_label.setMask(QRegion(path.toFillPolygon().toPolygon()))
-        
+
         self.map_layout.addWidget(self.map_label, alignment=Qt.AlignCenter)
         
     def popup(self):
@@ -2047,15 +2206,17 @@ class MainWindow(QMainWindow):
         map_layout.setContentsMargins(0,0,0,0)
         
         map_widget = QWebEngineView()
+
+        map_widget.setStyleSheet("background: transparent;")   
+        map_widget.setAttribute(Qt.WA_TranslucentBackground, True)
+        map_widget.page().setBackgroundColor(Qt.transparent)
+
         settings = map_widget.settings()
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
 
-        theme = check_theme()
+        self.path = os.path.abspath("./map.html")
 
-        if theme == 0: self.path = os.path.abspath("./map-dark.html")
-        else: self.path = os.path.abspath("./map-dark.html")
-        
         map_widget.setUrl(QUrl.fromLocalFile(self.path))
         map_layout.addWidget(map_widget)
         
@@ -2409,7 +2570,6 @@ class MainWindow(QMainWindow):
         sunrise_icon = svg("./Icons/sunrise.svg", 60, 60, reverse=True)
         sunrise_layout.addWidget(sunrise_icon, alignment=Qt.AlignVCenter)
 
-        print(len(self.sunrise))
         sunrise_time = text(str(self.sunrise), "white", poppins("semi bold"), 20, sunrise)
         sunrise_time.setStyleSheet(sunrise_time.styleSheet() + "; padding-top: 8px;")
         sunrise_layout.addWidget(sunrise_time, alignment=Qt.AlignVCenter)
@@ -2422,7 +2582,6 @@ class MainWindow(QMainWindow):
         sunset_icon = svg("./Icons/sunset.svg", 60, 60, reverse=True)
         sunset_layout.addWidget(sunset_icon, alignment=Qt.AlignVCenter)
 
-        print(len(self.sunset))
         sunset_time = text(str(self.sunset), "white", poppins("semi bold"), 20, sunset)
         sunset_time.setStyleSheet(sunset_time.styleSheet() + "; padding-top: 8px;")
         sunset_layout.addWidget(sunset_time, alignment=Qt.AlignVCenter)
@@ -2471,30 +2630,43 @@ class MainWindow(QMainWindow):
         
 
 
-        if str(self.current_condition).lower() == "clear":
-            condition = svg("./Icons/clear-day.svg" if self.ismorning else "./Icons/clear-night.svg", 190, 190)
-        elif str(self.current_condition).lower() == "rain":
-            condition = svg("./Icons/rain.svg", 190, 190)
-        elif "cloud" in str(self.current_condition).lower() or "few" in str(self.current_condition).lower() or "scattered" in str(self.current_condition).lower():
-            condition = svg("./Icons/partly-cloudy-day.svg" if self.ismorning else "./Icons/partly-cloudy-night.svg", 190, 190)
-        elif str(self.current_condition).lower() == "clouds":
-                condition = svg("./Icons/cloudy.svg", 190, 190)
-        elif str(self.current_condition).lower() == "snow":
-            condition = svg("./Icons/snow.svg", 190, 190)
-        elif "thunderstorm" in str(self.current_condition).lower():
+        if self.current_weather_id == 800:
+            if self.ismorning:
+                condition = svg("./Icons/clear-day.svg", 190, 190)
+            else:
+                condition = svg("./Icons/clear-night.svg", 190, 190)
+        elif self.current_weather_id == 804:
+            condition = svg("./Icons/cloudy.svg", 190, 190)
+        elif self.current_weather_id in (801, 802, 803):
+            if self.ismorning:
+                condition = svg("./Icons/partly-cloudy-day.svg", 190, 190)
+            else:
+                condition = svg("./Icons/partly-cloudy-night.svg", 190, 190)
+        elif self.current_weather_id in (500, 501, 502, 503, 504, 520, 521, 522, 531):
+            if self.current_weather_id == 500:
+                condition = svg("./Icons/drizzle.svg", 190, 190)
+            else:
+                condition = svg("./Icons/rain.svg", 190, 190)
+        elif self.current_weather_id in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232):
             condition = svg("./Icons/thunderstorm.svg", 190, 190)
-        elif "overcast" in str(self.current_condition).lower():
-            condition = svg("./Icons/overcast.svg", 190, 190)
-        elif "fog" in str(self.current_condition).lower():
-            condition = svg("./Icons/fog.svg", 190, 190)
-        elif "dust" in str(self.current_condition).lower():
-            condition = svg("./Icons/dust.svg", 190, 190)
-        elif "haze" in str(self.current_condition).lower():
-            condition = svg("./Icons/haze.svg", 190, 190)
-        elif "light" or "drizzle" in str(self.current_condition).lower():
-            condition = svg("./Icons/light-rain.svg", 190, 190)
-        elif "hail" in str(self.current_condition).lower():
+        elif self.current_weather_id in (300, 301, 302, 310, 311, 312, 321):
+            condition = svg("./Icons/drizzle.svg", 190, 190)
+        elif self.current_weather_id in (600, 601, 602, 611, 612, 615, 616, 620, 621, 621):
+            condition = svg("./Icons/snowflake.svg", 190, 190)
+        elif self.current_weather_id == 611:
             condition = svg("./Icons/hail.svg", 190, 190)
+        elif self.current_weather_id == 721:
+            condition = svg("./Icons/haze.svg", 190, 190)
+        elif self.current_weather_id == 731:
+            condition = svg("./Icons/dust.svg", 190, 190)
+        elif self.current_weather_id in (701, 741):
+            condition = svg("./Icons/fog.svg", 190, 190)
+        else:
+            print(f"No icon for {self.current_weather_id}")
+        
+        
+
+
         #condition.setStyleSheet("margin-top: 22px;")
 
         unit = load_settings()
@@ -2525,7 +2697,7 @@ class MainWindow(QMainWindow):
 
         if len(self.condition.text()) > 10:
             self.condition.deleteLater()
-            self.condition = text(self.current_condition, "white", poppins("semi bold"), 38, self.status)
+            self.condition = text(self.current_condition, "white", poppins("semi bold"), 35, self.status)
 
         
         self.condition.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -2557,6 +2729,7 @@ class MainWindow(QMainWindow):
         self.condition.show()
         temp.show()
         location.show()
+
     
     def open_credits(self, event):
         file = "./attribution.txt"
@@ -2594,6 +2767,8 @@ def main():
     )
     
     app = QApplication(sys.argv)
+
+    app.setWindowIcon(QIcon("./skyline.ico"))
     
     window = MainWindow()
     

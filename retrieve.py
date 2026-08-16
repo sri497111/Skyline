@@ -117,7 +117,7 @@ def parse_daily_forecast(data):
     for item in data["list"]:
         day = datetime.strptime(item["dt_txt"], "%Y-%m-%d %H:%M:%S").strftime("%A").lower()
         temp = item['main']['temp']
-        condition = item['weather'][0]['main']
+        condition = item['weather'][0]['id']
         wind_speed = item['wind']['speed']
         precip = (item.get('pop', 0) * 100)
         
@@ -134,7 +134,7 @@ def parse_daily_forecast(data):
             day_list[index][2].append(temp)
             day_list[index][3].append(precip)
             day_list[index][4].append(wind_speed)
-    
+    print(f"Lenght of day list: {len(day_list)}")
     for day in day_list:
         day_of_week = str(day[0]).title()
         temps = day[2]
@@ -204,7 +204,7 @@ class WeatherWait(QThread):
         try:
             weather = Weather(self.location)
             
-            theme = check_theme()
+            theme = 1
 
             if theme == 0: map_val = get_map_preview(self.location[0], self.location[1], theme="dark", precise=self.precise)
             else: map_val = get_map_preview(self.location[0], self.location[1], theme="light", precise=self.precise)
@@ -279,11 +279,9 @@ def open_replace_reverse(path):
 
 def edit_html(reverse=False):
     if reverse:
-        open_replace_reverse("./map-light.html")
-        open_replace_reverse("./map-dark.html")
+        open_replace_reverse("./map.html")
     else:
-        open_replace("./map-light.html")
-        open_replace("./map-dark.html")
+        open_replace("./map.html")
 
 class MapWorker(QObject):
     finished = pyqtSignal(object)

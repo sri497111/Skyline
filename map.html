@@ -9,22 +9,47 @@
     <style>
         @font-face {
             font-family: 'Poppins';
-            src: url('poppins.ttf') format('truetype'),
-                 url('./poppins.ttf') format('truetype');
+            src: url('./Font//poppins/Poppins-Medium.ttf') format('truetype'),
+                 url('./Font/poppins/Poppins-Medium.ttf') format('truetype');
         }
-        html, body { margin: 0; padding: 0; background-color: #0f172a; font-family: 'Poppins' !important; }
+
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%;
+            height: 100%;
+            background-color: transparent !important; 
+            font-family: 'Poppins' !important; 
+            overflow: hidden;
+        }
         * { font-family: 'Poppins' !important; font-weight: 600 !important; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        
+        #map { 
+            position: absolute; 
+            top: 0; 
+            bottom: 0; 
+            left: 0;
+            right: 0;
+            width: 100%; 
+            height: 100%;
+            border-radius: 45px;
+            overflow: hidden;
+            background: transparent !important;
+        }
+
+        .maplibregl-canvas-container,
+        .maplibregl-canvas {
+            border-radius: 45px;
+        }
+
         .maplibre-canvas { animation: fadeIn 0.22s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
         .maplibregl-ctrl-group {
-            background: rgba(0, 0, 0, 0.4) !important;
-            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            background: rgba(255, 255, 255, 0.4) !important;
+            border: 1px solid rgba(0, 0, 0, 0.05) !important;
             backdrop-filter: blur(10px);
             border-radius: 8px;
-        }
-        .maplibregl-ctrl button span {
-            filter: invert(1);
         }
 
         .control-container {
@@ -35,17 +60,16 @@
             width: 48px;
             height: 48px;
             border-radius: 50%;
-            background: rgba(0, 0, 0, 0.35);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.08);
             cursor: pointer;
             overflow: hidden;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
-        /* Menu Button SVG Container */
+
         .menu-icon {
             width: 48px;
             height: 48px;
@@ -75,8 +99,8 @@
             height: 235px;
             border-radius: 24px;
             cursor: default;
-            background: rgba(0, 0, 0, 0.45);
-            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.35);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22), 0 8px 20px rgba(0, 0, 0, 0.1);
         }
 
         .control-container:hover .menu-icon,
@@ -98,7 +122,7 @@
             font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            color: rgba(255, 255, 255, 0.4);
+            color: rgba(0, 0, 0, 0.5);
             text-align: center;
         }
 
@@ -110,14 +134,14 @@
             cursor: pointer;
             font-size: 14px;
             user-select: none;
-            color: #f8fafc;
+            color: #1e293b;
             transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             padding: 4px 2px;
             position: relative;
         }
 
         .layer-option:hover {
-            color: #38bdf8;
+            color: #0076ff;
         }
 
         .layer-option input {
@@ -131,7 +155,6 @@
             z-index: 5;
         }
 
-        /* Active Tick Indicator Mark */
         .checkmark-tick {
             width: 12px;
             height: 12px;
@@ -150,7 +173,7 @@
             top: 0px;
             width: 4px;
             height: 9px;
-            border: solid #38bdf8;
+            border: solid #0076ff;
             border-width: 0 2px 2px 0;
             transform: rotate(45deg);
         }
@@ -160,21 +183,21 @@
             transform: scale(1.1) rotate(0deg);
         }
 
-        /* Google Maps-style Location Marker */
         .location-marker {
             width: 20px;
             height: 20px;
             background-color: #ffffff;
             border-radius: 50%;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
             display: flex;
             align-items: center;
             justify-content: center;
         }
+        
         .location-marker-inner {
             width: 10px;
             height: 10px;
-            background-color: #38bdf8;
+            background-color: #0076ff;
             border-radius: 50%;
         }
     </style>
@@ -186,7 +209,7 @@
 <div class="control-container" id="controlContainer">
     <div class="menu-icon">
         <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 1H17M1 7H17M1 13H17" stroke="#f8fafc" stroke-width="2" stroke-linecap="round"/>
+            <path d="M1 1H17M1 7H17M1 13H17" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
         </svg>
     </div>
 
@@ -220,14 +243,12 @@
 
     const map = new maplibregl.Map({
         container: 'map',
-        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
         center: [0, 51.477],
         zoom: 9,
         fadeDuration: 80,
-        attributionControl: false 
+        attributionControl: false
     });
-
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     const container = document.getElementById('controlContainer');
     const weatherInputs = Array.from(document.querySelectorAll('input[name="weather-layer"]'));
@@ -235,7 +256,7 @@
 
     let hoverTimer = null;
     let pinnedOpen = false;
-    let locationMarker = null; // Reference to hold our coordinates marker
+    let locationMarker = null;
 
     function openMenu() {
         container.classList.add('expanded');
@@ -302,7 +323,7 @@
             type: 'raster',
             source: 'high-contrast-terrain',
             paint: {
-                'raster-opacity': 0.12,
+                'raster-opacity': 0.18,
                 'raster-fade-duration': 120
             }
         }, firstLabelId || undefined);
@@ -341,7 +362,6 @@
 
         setVisibleLayer('precipitation');
 
-        // Automatically create the marker at the map's initial center
         const startCenter = map.getCenter();
         const markerEl = document.createElement('div');
         markerEl.className = 'location-marker';

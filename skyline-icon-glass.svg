@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
+  <defs>
+    <linearGradient id="whiteAlphaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1" />
+    </linearGradient>
+    <linearGradient id="glossHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05" />
+    </linearGradient>
+    <linearGradient id="barGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Group translated to center the icon's semicircle within the 100x100 canvas -->
+  <g transform="translate(0, 21)">
+    <path d="M 22 46 
+             L 78 46 
+             A 8 8 0 0 0 86 38 
+             A 36 36 0 0 0 14 38 
+             A 8 8 0 0 0 22 46 Z" 
+          fill="url(#whiteAlphaGradient)" 
+          stroke="url(#glossHighlight)" 
+          stroke-width="1.5" />
+    <path d="M 28 42 L 72 42" 
+          stroke="#ffffff" 
+          stroke-width="1" 
+          stroke-opacity="0.3" 
+          stroke-linecap="round" />
+    <rect x="24" y="51" width="52" height="6" rx="3" 
+          fill="url(#barGradient)" 
+          stroke="#ffffff" 
+          stroke-width="0.75" 
+          stroke-opacity="0.2" />
+  </g>
+</svg>
