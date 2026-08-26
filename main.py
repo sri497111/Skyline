@@ -33,7 +33,6 @@ import json
 
 # --------------------------------------------------------------------------
 
-
 SIZE = (878, 550)
 
 SPEED_UNIT = "MPH"
@@ -292,12 +291,20 @@ class MainWindow(QMainWindow):
 
         self.current_weather = data['current']
         
-        self.insights_data = data['insights']['insights']
+        print(data['insights'])
+        self.insights_data = data['insights']["insights"]
+
         self.insights_list = []
-        self.insights_data = self.insights_data.split(";")
-        
-        for insight_text in self.insights_data:
-            self.insights_list.append(insight_text.split(" -- "))
+        if isinstance(self.insights_data, str) and self.insights_data.strip():
+            split_insights = self.insights_data.split(";")
+            for insight_text in split_insights:
+                if "--" in insight_text:
+                    self.insights_list.append(insight_text.split("--"))
+                else:
+                    self.insights_list.append(["Weather Insight", insight_text.strip()])
+
+        if not self.insights_list:
+            self.insights_list = [["Weather Insight", "No insights available."], ["Weather Insight", "No insights available."], ["Weather Insight", "No insights available."]]
 
         self.current_weather_data = self.current_weather
 

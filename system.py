@@ -1,13 +1,20 @@
+import ctypes
 import threading
-import tkinter
 import pygame
 import socket
+import winreg
 
-# Uses tk to get the users DPI settings
+# Uses ctypes to get the users DPI settings
 def get_dpi():
-    root = tkinter.Tk()
-    dpi = int(root.winfo_fpixels('1i'))
-    root.destroy()
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        ctypes.windll.user32.SetProcessDPIAware()
+
+    hdc = ctypes.windll.user32.GetDC(0)
+    dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
+    ctypes.windll.user32.ReleaseDC(0, hdc)
+
     return dpi
 
 # Opens a pygame instance quickly and checks refresh rate
