@@ -91,13 +91,17 @@ class AcrylicBar(QWidget):
             }
         ''')
 
+        self.icon_svg = svg("./skyline-icon-glass.svg", 25, 25)
+        self.icon_svg.raise_()
+
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 0, 0, 0)
         layout.setSpacing(0)
 
         self.title = QLabel(" ")
         self.title.setAttribute(Qt.WA_TransparentForMouseEvents)
         
+        layout.addWidget(self.icon_svg)
         layout.addWidget(self.title)
 
         layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
@@ -171,8 +175,8 @@ class AcrylicBar(QWidget):
     def set_transition_bg(self, background_row, live_row_strip):
         source_row = background_row.toImage()
         if source_row.width() != self.width():
-            source_row = source_row.scaled(self.width(), 1, Qt.IgnoreAspectRatio, Qt,FastTransformation)
-        live_image = live_row_strip.toImage
+            source_row = source_row.scaled(self.width(), 1, Qt.IgnoreAspectRatio, Qt.FastTransformation)
+        live_image = live_row_strip.toImage()
 
         if (self._background_row_img is not None and self._background_row_img == source_row and self._live_strip_img == live_image):
             return
@@ -185,6 +189,7 @@ class AcrylicBar(QWidget):
 
         painter = QPainter(transition)
         painter.drawPixmap(0,0, self.width(), self.height(), QPixmap.fromImage(source_row))
+        painter.drawPixmap(0,0, live_row_strip)
 
         painter.setCompositionMode(QPainter.CompositionMode_DestinationIn)
 
