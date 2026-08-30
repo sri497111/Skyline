@@ -143,11 +143,8 @@ class AcrylicBar(QWidget):
             night_gradient.setColorAt(0.80, QColor(0, 0, 0, int(night_strength * 0.15)))
             night_gradient.setColorAt(1.00, QColor(0, 0, 0, 0))
 
-            painter.setOpacity(1.0)
+            painter.setOpacity(self._transition_opacity)
             painter.fillRect(self.rect(), night_gradient)
-        if self._loading_opacity > 0.0:
-            painter.setOpacity(self._loading_opacity)
-            painter.fillRect(self.rect(), QColor(35,35,35))
     
     def set_opacity_transition(self, opacity):
         self._transition_opacity = max(0.0, min(1.0, float(opacity)))
@@ -159,6 +156,11 @@ class AcrylicBar(QWidget):
 
     def get_opacity_when_loading(self):
         return self._loading_opacity
+    
+    def get_opacity_transition(self):
+        return self._transition_opacity
+
+    transitionOpacity = pyqtProperty(float, get_opacity_transition, set_opacity_transition)
 
     def set_opacity_when_loading(self, opacity):
         self._loading_opacity = max(0.0, min(1.0, float(opacity)))
@@ -168,6 +170,10 @@ class AcrylicBar(QWidget):
     loadingOpacity = pyqtProperty(float, get_opacity_when_loading, set_opacity_when_loading)
 
     def set_surface_loadin(self, loading):
+        if loading:
+            self.clear_transition()
+            self.set_opacity_transition(0.0)
+        
         target_opacity = 1.0 if loading else 0.0
 
         if self._loading_animation is not None:
@@ -284,9 +290,9 @@ class MainWindow(QMainWindow):
         content_layout = QVBoxLayout(self.centralwidget)
         content_layout.setContentsMargins(0,0,0,0)
         content_layout.setSpacing(0)
-        self.viewport_contianer = QWidget(self.centralwidget)
+        self.viewport_container = QWidget(self.centralwidget)
         self.window_container.setStyleSheet("background: transparent; border: none;")
-        content_layout.addWidget(self.viewport_contianer)
+        content_layout.addWidget(self.viewport_container)
 
         self.bg = QLabel(self.centralwidget)
         self.bg.setScaledContents(True)
@@ -294,7 +300,7 @@ class MainWindow(QMainWindow):
         self.bg.setPixmap(QPixmap("./Backgrounds/dark-theme.png"))
 
         self.bg_fade_effect = QGraphicsOpacityEffect(self.bg)
-        self.bg_fade_effect.setOpacity(1.0)
+        self.bg_fade_effect.setOpacity(0.0)
         self.bg.setGraphicsEffect(self.bg_fade_effect)
 
         self.weather_bg_label = QLabel(self.centralwidget)
@@ -336,7 +342,7 @@ class MainWindow(QMainWindow):
 
         # Init Viewport and screening (content)
 
-        self.viewport = QWidget(self.viewport_contianer)
+        self.viewport = QWidget(self.viewport_container)
         self.viewport.setGeometry(0, 0, 878, 2030)
         self.viewport.setStyleSheet("background: transparent; border: none; border-radius: 0px;")
         
@@ -641,7 +647,11 @@ class MainWindow(QMainWindow):
         current_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
         
         self.ismorning = sunrise_unix <= current_time <= sunset_unix
-        self.nearsun = (sunrise_unix - (45 * 60) <= current_time <= sunset_unix + (60 * 60) or sunrise_unix - (60 * 60) <= current_time <= sunset_unix + (45* 60))
+        self.nearsun = (
+            sunrise_unix - (45 * 60) <= current_time <= sunrise_unix + (45 * 60) 
+            or
+            sunset_unix - (45 * 60) <= current_time <= sunset_unix + (45 * 60)
+        )
         self.title_bar.set_mode_night(not self.ismorning)
 
         tz_offset = self.current_weather_data['timezone']
@@ -716,6 +726,8 @@ class MainWindow(QMainWindow):
 
         QApplication.processEvents()
 
+        self.update_title_edge()
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.inertia)
         self.timer.start(self.frequency)
@@ -761,11 +773,20 @@ class MainWindow(QMainWindow):
         self.fade_in.setStartValue(0.0)
         self.fade_in.setEndValue(1.0)
         
-        self.fade_in.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
-        self.fade_out.finished.connect(self.fade_in.start)
+        self.title_gradient_fade = QPropertyAnimation(self.title_bar, b'transitionOpacity', self)
+        self.title_gradient_fade.setDuration(400)
+        self.title_gradient_fade.setStartValue(0.0)
+        self.title_gradient_fade.setEndValue(1.0)
+        self.title_gradient_fade.setEasingCurve(QEasingCurve.InOutQuad)
+
+        self.reveal_group = QParallelAnimationGroup(self)        
+        self.reveal_group.addAnimation(self.fade_in)
+        self.reveal_group.addAnimation(self.title_gradient_fade)
+
+        self.reveal_group.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
+        self.fade_out.finished.connect(self.reveal_group.start)
 
         def begin_content_transition():
-            self.title_bar.set_surface_loadin(False)
             self.fade_out.start()
 
         QTimer.singleShot(10, begin_content_transition)
@@ -902,11 +923,14 @@ class MainWindow(QMainWindow):
                             card.updatePixmap()
 
             else:
+                map_bottom = self.weather_map_card.y() + self.weather_map_card.height()
+                maxscroll = max(0, map_bottom - self.viewport_container.height()) + 10
+
                 if self.yv > 0:
                     self.yv = 0
                     self.v = 0
-                elif self.yv < -1820:
-                    self.yv = -1820
+                elif self.yv < -maxscroll:
+                    self.yv = -maxscroll
                     self.v = 0
                 
                 self.sensitvity = 0.03
@@ -1240,7 +1264,7 @@ class MainWindow(QMainWindow):
         hide_viewport.setOpacity(0.0)
 
         self.weather_fade_effect.setOpacity(0.0)
-        self.bg_fade_effect.setOpacity(1.0)
+        self.bg_fade_effect.setOpacity(0.0)
 
         self.bg_fade_out = QPropertyAnimation(self.weather_fade_effect, b'opacity')
         self.bg_fade_out.setDuration(600)
@@ -2126,9 +2150,15 @@ class MainWindow(QMainWindow):
         
 
     def daily(self):
-        if len(self.weather_daily_forecast_data) > 5:
-            self.viewport.setGeometry(0, 0, 878, 2390)
-            self.viewport.update()
+        dailycount = len(self.weather_daily_forecast_data)
+        if dailycount > 5:
+            viewport_height = 2390
+        elif dailycount == 5:
+            viewport_height = 2290
+        else:
+            viewport_height = 2030
+        self.viewport.setGeometry(0, 0, 878, viewport_height)
+        self.viewport.update()
         self.daily_forecast = Card(self.viewport, self.element, 590 if len(self.weather_daily_forecast_data) > 5 else 490, rain_effect=True if "rain" in self.current_condition.lower() else False, snow_effect=True if "snow" in self.current_condition.lower() else False, window_widget=self.centralwidget)
         self.daily_forecast.setContentsMargins(35,0,0,0)
         self.daily_layout = QVBoxLayout(self.daily_forecast)
