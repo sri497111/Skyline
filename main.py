@@ -639,22 +639,11 @@ class MainWindow(QMainWindow):
         sunset_unix = self.current_weather_data['sys']['sunset']
 
         current_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
-        self.nearsun = (sunrise_unix - (45 * 60) <= current_time <= sunset_unix + (45 * 60) or sunrise_unix - (60 * 60) <= current_time <= sunset_unix + (45* 60))
         
-        if not self.nearsun:
-            if current_time < sunrise_unix or current_time > sunset_unix:
-                self.ismorning = False
-            else:
-                self.ismorning = True
-            self.title_bar.set_mode_night(not self.ismorning)
-        else:
-            if current_time < sunrise_unix or current_time > sunset_unix:
-                self.ismorning = False
-            else:
-                self.ismorning = True
+        self.ismorning = sunrise_unix <= current_time <= sunset_unix
+        self.nearsun = (sunrise_unix - (45 * 60) <= current_time <= sunset_unix + (60 * 60) or sunrise_unix - (60 * 60) <= current_time <= sunset_unix + (45* 60))
+        self.title_bar.set_mode_night(not self.ismorning)
 
-        
-        
         tz_offset = self.current_weather_data['timezone']
 
         local_sunrise = datetime.datetime.fromtimestamp(sunrise_unix, datetime.timezone.utc) + datetime.timedelta(seconds=tz_offset)
