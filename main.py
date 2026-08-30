@@ -226,7 +226,6 @@ class ViewportWid(QWidget):
             if background is not None:
                 background.setGeometry(self.rect())
 
-
 class PopupHost(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)
@@ -346,6 +345,7 @@ class MainWindow(QMainWindow):
         self.loading.move((self.width()-self.loading.width())//2, (self.height()-self.loading.height())//2)
         self.loading.show()
         self.loading.raise_()
+        self.title_bar.set_surface_loadin(True)
 
         self.title_edge_timer = QTimer(self)
         self.title_edge_timer.timeout.connect(self.update_title_edge)
@@ -712,6 +712,7 @@ class MainWindow(QMainWindow):
             self.loading.move(self.centralwidget.width()-self.loading.width()//2, self.centralwidget.height()-self.loading.height()//2)
             self.loading.show()
             self.loading.raise_()
+            self.title_bar.set_surface_loadin(True)
             self.loading.setGraphicsEffect(self.load_fade)
 
         self.fade_out = QPropertyAnimation(self.load_fade, b"opacity")
@@ -726,6 +727,7 @@ class MainWindow(QMainWindow):
                 self.loading.hide()
                 self.loading.deleteLater()
                 self.loading = None
+                
 
         self.fade_out.finished.connect(cleanup)
 
@@ -734,12 +736,25 @@ class MainWindow(QMainWindow):
         self.fade_in.setStartValue(0.0)
         self.fade_in.setEndValue(1.0)
         
-        self.fade_in.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
+        if self.title_bar._loading_animation is not None:
+            self.title_bar._loading_animation.stop()
 
-        self.fade_out.finished.connect(self.fade_in.start)
+        self.title_fadein = QPropertyAnimation(self.title_bar, b'loadingOpacity', self)
+
+        self.title_fadein.setDuration(400)
+        self.title_fadein.setStartValue(self.title_bar.get_opacity_when_loading())
+        self.title_fadein.setEndValue(0.0)
+        self.title_fadein.setEasingCurve(QEasingCurve.InOutQuad)
+
+        self.fadein_group = QParallelAnimationGroup(self)
+        self.fadein_group.addAnimation(self.fade_in)
+        self.fadein_group.addAnimation(self.title_fadein)
+
+        self.fadein_group.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
+        self.fade_out.finished.connect(self.fadein_group.start)
 
         def begin_content_transition():
-            self.title_bar.set_surface_loadin(False)
+
             self.fade_out.start()
 
         QTimer.singleShot(10, begin_content_transition)
@@ -1250,6 +1265,7 @@ class MainWindow(QMainWindow):
         self.load_fade.setOpacity(1.0)
         self.loading.show()
         self.loading.raise_()
+        self.title_bar.set_surface_loadin(True)
         self.loading.setGraphicsEffect(self.load_fade)
         self.title_bar.set_surface_loadin(True)
 
