@@ -91,11 +91,12 @@ class AcrylicBar(QWidget):
             }
         ''')
 
-        self.icon_svg = svg("./skyline-icon-glass.svg", 25, 25)
+        self.icon_svg = svg("./skyline-icon-glass.svg", 22, 22)
+        self.icon_svg.setStyleSheet("padding-bottom: 20px;")
         self.icon_svg.raise_()
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 0, 0, 0)
+        layout.setContentsMargins(10, 0, 5, 0)
         layout.setSpacing(0)
 
         self.title = QLabel(" ")
@@ -106,14 +107,21 @@ class AcrylicBar(QWidget):
 
         layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-        self.minimize_button = hover_svg("./Icons/minus.svg", 25, 25)
+        self.minimize_button = hover_svg("./Icons/minus.svg", 22, 22)
+        self.minimize_opacity_effect = QGraphicsOpacityEffect(self.minimize_button)
+        self.minimize_opacity_effect.setOpacity(0.7)
+        self.minimize_button.setGraphicsEffect(self.minimize_opacity_effect)
         self.minimize_button.mouseReleaseEvent = lambda event: self.parent_window.native_minimize()
 
         layout.addWidget(self.minimize_button)
 
-        self.close_button = hover_svg("./Icons/close.svg", 25, 25)
+        self.close_button = hover_svg("./Icons/close.svg", 22, 22)
+        self.close_opacity_effect = QGraphicsOpacityEffect(self.close_button)
+        self.close_opacity_effect.setOpacity(0.7)
+        self.close_button.setGraphicsEffect(self.close_opacity_effect)
         self.close_button.mouseReleaseEvent = lambda event: self.parent_window.close()
 
+        layout.addSpacing(10)
         layout.addWidget(self.close_button)
 
     def paintEvent(self, event):
@@ -345,6 +353,7 @@ class MainWindow(QMainWindow):
         self.loading.move((self.width()-self.loading.width())//2, (self.height()-self.loading.height())//2)
         self.loading.show()
         self.loading.raise_()
+        self.title_bar.set_opacity_when_loading(1.0)
         self.title_bar.set_surface_loadin(True)
 
         self.title_edge_timer = QTimer(self)
@@ -409,12 +418,22 @@ class MainWindow(QMainWindow):
 
     def set_background_image(self, condition, desc):
         if self.current_weather_id == 800:
-            if self.ismorning:
-                self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred.png")
-                self.element = QPixmap("./Backgrounds/clear/element.png")
+            if not self.nearsun:
+                if self.ismorning:
+                    self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred.png")
+                    self.element = QPixmap("./Backgrounds/clear/element.png")
+                else:
+                    self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred1.png")
+                    self.element = QPixmap("./Backgrounds/clear/element1.png")
             else:
-                self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred1.png")
-                self.element = QPixmap("./Backgrounds/clear/element1.png")
+                choice = random.choice([1, 2])
+                if choice == 1:
+                    self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred2.png")
+                    self.element = QPixmap("./Backgrounds/clear/element2.png")
+                else:
+                    self.bg_pixmap = QPixmap("./Backgrounds/clear/blurred3.png")
+                    self.element = QPixmap("./Backgrounds/clear/element3.png")
+
         
         elif self.current_weather_id == 804:
             self.current_condition = "Cloudy"
@@ -432,20 +451,28 @@ class MainWindow(QMainWindow):
 
         elif self.current_weather_id == 801 or self.current_weather_id == 802:
             self.current_condition = "Partly Cloudy"
-            if self.ismorning:
-                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred1.png")
-                self.element = QPixmap("./Backgrounds/partly/element1.png")
+            if not self.nearsun:
+                if self.ismorning:
+                    self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred1.png")
+                    self.element = QPixmap("./Backgrounds/partly/element1.png")
+                else:
+                    self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
+                    self.element = QPixmap("./Backgrounds/partly/element2.png")
             else:
-                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
-                self.element = QPixmap("./Backgrounds/partly/element2.png")
+                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred3.png")
+                self.element = QPixmap("./Backgrounds/partly/element3.png")
         elif self.current_weather_id == 803:
             self.current_condition = "Mostly Cloudy"
-            if self.ismorning:
-                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred1.png")
-                self.element = QPixmap("./Backgrounds/partly/element1.png")
+            if not self.nearsun:
+                if self.ismorning:
+                    self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred1.png")
+                    self.element = QPixmap("./Backgrounds/partly/element1.png")
+                else:
+                    self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
+                    self.element = QPixmap("./Backgrounds/partly/element2.png")
             else:
-                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred2.png")
-                self.element = QPixmap("./Backgrounds/partly/element2.png")
+                self.bg_pixmap = QPixmap("./Backgrounds/partly/blurred3.png")
+                self.element = QPixmap("./Backgrounds/partly/element3.png")
 
         elif self.current_weather_id in (500, 501, 502, 503, 504, 520, 521, 522, 531):
             if self.current_weather_id == 500:
@@ -612,12 +639,21 @@ class MainWindow(QMainWindow):
         sunset_unix = self.current_weather_data['sys']['sunset']
 
         current_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
-        if current_time < sunrise_unix or current_time > sunset_unix:
-            self.ismorning = False
+        self.nearsun = (sunrise_unix - (45 * 60) <= current_time <= sunset_unix + (45 * 60) or sunrise_unix - (60 * 60) <= current_time <= sunset_unix + (45* 60))
+        
+        if not self.nearsun:
+            if current_time < sunrise_unix or current_time > sunset_unix:
+                self.ismorning = False
+            else:
+                self.ismorning = True
+            self.title_bar.set_mode_night(not self.ismorning)
         else:
-            self.ismorning = True
+            if current_time < sunrise_unix or current_time > sunset_unix:
+                self.ismorning = False
+            else:
+                self.ismorning = True
 
-        self.title_bar.set_mode_night(not self.ismorning)
+        
         
         tz_offset = self.current_weather_data['timezone']
 
@@ -736,25 +772,11 @@ class MainWindow(QMainWindow):
         self.fade_in.setStartValue(0.0)
         self.fade_in.setEndValue(1.0)
         
-        if self.title_bar._loading_animation is not None:
-            self.title_bar._loading_animation.stop()
-
-        self.title_fadein = QPropertyAnimation(self.title_bar, b'loadingOpacity', self)
-
-        self.title_fadein.setDuration(400)
-        self.title_fadein.setStartValue(self.title_bar.get_opacity_when_loading())
-        self.title_fadein.setEndValue(0.0)
-        self.title_fadein.setEasingCurve(QEasingCurve.InOutQuad)
-
-        self.fadein_group = QParallelAnimationGroup(self)
-        self.fadein_group.addAnimation(self.fade_in)
-        self.fadein_group.addAnimation(self.title_fadein)
-
-        self.fadein_group.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
-        self.fade_out.finished.connect(self.fadein_group.start)
+        self.fade_in.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
+        self.fade_out.finished.connect(self.fade_in.start)
 
         def begin_content_transition():
-
+            self.title_bar.set_surface_loadin(False)
             self.fade_out.start()
 
         QTimer.singleShot(10, begin_content_transition)
@@ -1267,7 +1289,7 @@ class MainWindow(QMainWindow):
         self.loading.raise_()
         self.title_bar.set_surface_loadin(True)
         self.loading.setGraphicsEffect(self.load_fade)
-        self.title_bar.set_surface_loadin(True)
+
 
         self.new_weather = WeatherWait(self.location)
         self.new_weather.data.connect(self.loaded)

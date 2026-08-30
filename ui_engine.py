@@ -466,7 +466,7 @@ def svg(path, width, height, reverse=False):
 def hover_svg(path, width, height, reverse=False):
     container = QFrame()
 
-    padding = 14
+    padding = 8
     circle_size = max(width, height) + padding
     
     radius = circle_size // 2
