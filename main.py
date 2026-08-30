@@ -107,12 +107,12 @@ class AcrylicBar(QWidget):
         layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
         self.minimize_button = hover_svg("./Icons/minus.svg", 25, 25)
-        self.minimize_button.mouseReleaseEvent = lambda event: self.parent_window.showMinimized()
+        self.minimize_button.mouseReleaseEvent = lambda event: self.parent_window.native_minimize()
 
         layout.addWidget(self.minimize_button)
 
         self.close_button = hover_svg("./Icons/close.svg", 25, 25)
-        self.minimize_button.mouseReleaseEvent = lambda event: self.parent_window.close()
+        self.close_button.mouseReleaseEvent = lambda event: self.parent_window.close()
 
         layout.addWidget(self.close_button)
 
@@ -193,7 +193,7 @@ class AcrylicBar(QWidget):
 
         painter.setCompositionMode(QPainter.CompositionMode_DestinationIn)
 
-        alpha_gradient = QLinearGradient(0,0,0, self.height()-1)
+        alpha_gradient = QLinearGradient(0,0,0, self.height())
         alpha_gradient.setColorAt(0, QColor(0,0,0,0))
         alpha_gradient.setColorAt(0.50, QColor(0,0,0,70))
         alpha_gradient.setColorAt(0.85, QColor(0,0,0,200))
@@ -214,7 +214,6 @@ class AcrylicBar(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.setCursor(Qt.ClosedHandCursor)
             ctypes.windll.user32.ReleaseCapture()
             ctypes.windll.user32.SendMessageW(int(self.parent_window.winId()), 0xA1, 2, 0)
             event.accept()
@@ -378,6 +377,34 @@ class MainWindow(QMainWindow):
         self.dash_wait = DashboardWeatherWait(locs[0], locs[1], locs[2], locs[3], locs[4])
         self.dash_wait.data.connect(self.dash_data_loaded)
         self.dash_wait.start()
+
+        QTimer.singleShot(0, self.native_window_commands)
+
+
+    def native_window_commands(self):
+        GWL_STYLE = -16
+        WS_SYSMENU = 0x00080000
+        WS_MINIMIZEBOX = 0x00020000
+
+        SWP_NOSIZE = 0x0001
+        SWP_NOMOVE = 0x0002
+        SWP_NOZORDER = 0x0004
+        SWP_FRAMECHANGED = 0x0020
+
+        hwnd = int(self.winId())
+        user32 = ctypes.windll.user32
+
+        style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+
+        user32.SetWindowLongW(hwnd, GWL_STYLE, style | WS_SYSMENU | WS_MINIMIZEBOX)
+
+        user32.SetWindowPos(hwnd, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+
+    def native_minimize(self):
+        WM_SYSCOMMAND = 0x0112
+        SC_MINIMIZE = 0xF020
+
+        ctypes.windll.user32.SendMessageW(int(self.winId()), WM_SYSCOMMAND, SC_MINIMIZE, 0)
 
 
     def set_background_image(self, condition, desc):
@@ -738,9 +765,9 @@ class MainWindow(QMainWindow):
         background_top_row = background_pixmap.copy(0,0, background_pixmap.width(), 1).scaled(content_width, 1, Qt.IgnoreAspectRatio, Qt.FastTransformation)
 
         title_height = self.title_bar.height()
-        viewport_top = max(0, -int(round(self.yv)))
-        visible_strip_height = min(title_height, viewport_top+1)
-        source_y = viewport_top - visible_strip_height + 1
+        viewport_top = max(0, -self.viewport.y())
+        visible_strip_height = min(title_height, viewport_top)
+        source_y = viewport_top - visible_strip_height
 
         live_strip = QPixmap(content_width, title_height)
         live_strip.fill(Qt.transparent)
