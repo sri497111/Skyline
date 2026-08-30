@@ -9,7 +9,7 @@ from PyQt5 import QtGui, QtWidgets
 from pathlib import Path
 import resvg_py as resvg
 
-from shaders import RainShaderOverlay
+from shaders import RainShaderOverlay, SnowShaderOverlay
 from system import *
 
 import requests
@@ -32,7 +32,7 @@ def check_theme():
 class Card(QFrame):
     clicked = pyqtSignal()
     
-    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None, rain_effect=False):
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None, rain_effect=False, snow_effect=False):
         super().__init__(parent)
         self.setFixedHeight(h)
         
@@ -46,13 +46,14 @@ class Card(QFrame):
         self.raise_dark = raise_dark
 
         self.rain_effect = rain_effect
+        self.snow_effect = snow_effect
 
         self.pixmap = pixmap
         self.window_size = window_size
 
         self.window_widget = window_widget
         
-        self.scaled = self.pixmap.scaled(878, 550, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.scaled = self.pixmap.scaled(878, 550, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
         
         self.bg = QLabel(self)
         self.bg.setScaledContents(True)
@@ -86,6 +87,15 @@ class Card(QFrame):
             self.rain_shader.show()
             self.rain_shader.raise_()
 
+        if snow_effect:
+            self.snow_shader = SnowShaderOverlay(self, self.pixmap)
+            self.snow_shader.move(0, 0)
+
+            self.snow_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+            self.snow_shader.show()
+            self.snow_shader.raise_()
+
     def updatePixmap(self):
         h = self.height()
         w = self.width()
@@ -101,7 +111,7 @@ class Card(QFrame):
             target_w = target.width() if target.width() > 0 else self.window_size[0] if self.window_size else target.width()
             target_h = target.height() if target.height() > 0 else self.window_size[1] if self.window_size else target.height()
         
-        if getattr(self, '_cached_tw', None) != target_w and getattr(self, '_cached_th', None) !=    target_h:
+        if getattr(self, '_cached_tw', None) != target_w or getattr(self, '_cached_th', None) !=    target_h:
             self._cached_tw = target_w
             self._cached_th = target_h
             self.scaled = self.pixmap.scaled(target_w, target_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -177,9 +187,13 @@ class Card(QFrame):
         if hasattr(self, 'rain_shader'):
             self.rain_shader.set_pixmap(crop)
             self.rain_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        
+
+        if hasattr(self, 'snow_shader'):
+            self.snow_shader.set_pixmap(crop)
+            self.snow_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
         if self.raise_dark:
-            if not self.rain_effect:
+            if not self.rain_effect and not self.snow_effect:
                 self.dark.stackUnder(self.bg)
                 self.bg.lower()
             else:
@@ -200,6 +214,9 @@ class Card(QFrame):
 
         if hasattr(self, 'rain_shader'):
             self.rain_shader.setGeometry(0, 0, w, h) 
+
+        if hasattr(self, 'snow_shader'):
+            self.snow_shader.setGeometry(0, 0, w, h)
 
         self.path = QPainterPath()
         self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)

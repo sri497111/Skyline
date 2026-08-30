@@ -641,7 +641,7 @@ class MainWindow(QMainWindow):
         self.menu_place = QHBoxLayout(self.menu)
         self.menu_place.setContentsMargins(0, 0, 20, 0)
         
-        self.menu_card = Card(self.viewport, self.element, 60, radius=30, raise_dark=False)
+        self.menu_card = Card(self.viewport, self.element, 60, radius=30, raise_dark=False, window_widget=self.centralwidget)
         self.menu_card.setFixedWidth(225)
         self.menu_card.setContentsMargins(0, 0, 0, 0)
 
@@ -1772,7 +1772,7 @@ class MainWindow(QMainWindow):
         if len(self.weather_daily_forecast_data) > 5:
             self.viewport.setGeometry(0, 0, 878, 2390)
             self.viewport.update()
-        self.daily_forecast = Card(self.viewport, self.element, 590 if len(self.weather_daily_forecast_data) > 5 else 490, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.daily_forecast = Card(self.viewport, self.element, 590 if len(self.weather_daily_forecast_data) > 5 else 490, rain_effect=True if "rain" in self.current_condition.lower() else False, snow_effect=True if "snow" in self.current_condition.lower() else False, window_widget=self.centralwidget)
         self.daily_forecast.setContentsMargins(35,0,0,0)
         self.daily_layout = QVBoxLayout(self.daily_forecast)
         self.populate_daily_forecast(self.weather_daily_forecast_data)
@@ -1879,7 +1879,7 @@ class MainWindow(QMainWindow):
             horizontal_widget.show()
 
     def insights(self):
-        self.insights_card = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.insights_card = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False, snow_effect=True if "snow" in self.current_condition.lower() else False, window_widget=self.centralwidget)
         self.insights_card.setContentsMargins(0,0,0,0)
         self.insights_layout = QHBoxLayout(self.insights_card)
         self.insights_layout.setContentsMargins(15,0,15,0)
@@ -2059,7 +2059,7 @@ class MainWindow(QMainWindow):
         
 
     def hourly(self):
-        self.hourly_forecast = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.hourly_forecast = Card(self.viewport, self.element, 200, rain_effect=True if "rain" in self.current_condition.lower() else False, snow_effect=True if "snow" in self.current_condition.lower() else False, window_widget=self.centralwidget)
         self.timeline = QHBoxLayout(self.hourly_forecast)
         self.populate_hourly_forecast(self.weather_hourly_forecast_data)
         
@@ -2140,7 +2140,7 @@ class MainWindow(QMainWindow):
             vertical_widget.show()
     
     def weather_map(self):
-        self.weather_map_card = Card(self.viewport, self.element, 350, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.weather_map_card = Card(self.viewport, self.element, 350, rain_effect=True if "rain" in self.current_condition.lower() else False, snow_effect=True if "snow" in self.current_condition.lower() else False, window_widget=self.centralwidget)
         self.weather_map_card.setCursor(Qt.PointingHandCursor)
         self.weather_map_card.dark.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
@@ -2257,7 +2257,7 @@ class MainWindow(QMainWindow):
         self.timer.start(self.frequency)
     
     def uv_and_feels_like(self):
-        self.uvf = Card(self.viewport, self.element, 250, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.uvf = Card(self.viewport, self.element, 250, rain_effect=True if "rain" in self.current_condition.lower() else False, snow_effect=True if "snow" in self.current_condition.lower() else False, window_widget=self.centralwidget)
         self.uvf.setContentsMargins(105,20,55,0)
         self.uvf_layout = QVBoxLayout(self.uvf)
         self.uvf_layout.setSpacing(0)
@@ -2428,7 +2428,7 @@ class MainWindow(QMainWindow):
         self.uvf_layout.addWidget(column_widget)
 
     def humidity_air_sun(self):
-        self.has = Card(self.viewport, self.element, 250, rain_effect=True if "rain" in self.current_condition.lower() else False)
+        self.has = Card(self.viewport, self.element, 250, rain_effect=True if "rain" in self.current_condition.lower() else False, snow_effect=True if "snow" in self.current_condition.lower() else False, window_widget=self.centralwidget)
         self.has.setContentsMargins(105,20,55,0)
         self.has_layout = QVBoxLayout(self.has)
         self.has_layout.setSpacing(0)

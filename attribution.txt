@@ -117,6 +117,19 @@ LICENSE-URL: https://creativecommons.org
 
 ---------------------------------------------------------------------------------
 
+Snow Shaders -
+
+(Derived from) - 
+NAME - "Heartfelt" By Martijn Steinrucken (BigWings)
+FROM: shadertoy.com (https://www.shadertoy.com/view/ltffzl) 
+LICENSE: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported (CC BY-NC-SA 3.0)
+LICENSE-URL: https://creativecommons.org
+
+
+---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
 Dot Icon -
 
 NAME - Dot Small SVG Vector
