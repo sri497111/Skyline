@@ -2,11 +2,11 @@
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy, QLineEdit
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop, QEvent, QParallelAnimationGroup, QPoint, QThread, QRectF
+from PyQt5.QtCore import Qt, QTimer, QUrl, QPropertyAnimation, QEasingCurve, QEventLoop, QEvent, QParallelAnimationGroup, QPoint, QThread, QRectF, QRect, pyqtProperty
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
-from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame
+from PyQt5.QtWidgets import QGraphicsBlurEffect, QGraphicsOpacityEffect, QFrame, QStyleOption, QStyle
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-from PyQt5.QtGui import QPixmap, QPainterPath, QRegion, QFont, QPainter, QBrush, QIcon
+from PyQt5.QtGui import QPixmap, QPainterPath, QRegion, QFont, QPainter, QBrush, QIcon, QColor, QLinearGradient
 from PyQt5 import sip
 
 # Modules
@@ -15,9 +15,10 @@ from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWai
 from settings import load_settings, update_settings, check_theme
 from system import internet_check
 from location import *
-
-# System    
 from system import *
+
+# System   
+from ctypes.wintypes import DWORD, BOOL, HRGN, HWND
 import webbrowser
 import subprocess
 import platform
@@ -40,17 +41,214 @@ LENGTH_UNIT = "IN"
 
 refresh = get_refresh_rate()
 
+class ACCENTPOLICY(ctypes.Structure):
+    _fields_ = [
+        ("AccentState", ctypes.c_uint),
+        ("AccentFlags", ctypes.c_uint),
+        ("GradientColor", ctypes.c_uint),
+        ("AnimationId", ctypes.c_uint)
+    ]
+
+class WINDOWCOMPOSITIONATTRIBDATA(ctypes.Structure):
+    _fields_ = [
+        ("Attribute", ctypes.c_int),
+        ("Data", ctypes.POINTER(ACCENTPOLICY)),
+        ("SizeOfData", ctypes.c_size_t)
+    ]
+
+def blur(hwnd):
+    accent = ACCENTPOLICY()
+    accent.AccentState = 4
+    accent.AccentFlags = 0
+    accent.GradientColor = 0x10000000 
+    accent.AnimationId = 0
+
+    data = WINDOWCOMPOSITIONATTRIBDATA()
+    data.Attribute = 19
+    data.SizeOfData = ctypes.sizeof(accent)
+    data.Data = ctypes.cast(ctypes.pointer(accent), ctypes.POINTER(ACCENTPOLICY))
+    ctypes.windll.user32.SetWindowCompositionAttribute(hwnd, ctypes.pointer(data))
+
+class AcrylicBar(QWidget):
+    def __init__(self, parent, parent_window=None):
+        super().__init__(parent)
+        self.parent_window = parent_window or parent
+
+        self.setFixedHeight(40)
+        self.setObjectName("AcrylicTitleBar")
+        self._background_row_img = None
+        self._live_strip_img = None
+        self._transition_pix = QPixmap()
+        self._transition_opacity = 1.0
+        self._night_acrylic_opacity = 1.0
+        self._loading_opacity = 0.0
+        self._loading_animation = None
+
+        self.setStyleSheet('''
+            QWidget#AcrylicTitleBar {
+                background: transparent;
+                border: none;
+            }
+        ''')
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.title = QLabel(" ")
+        self.title.setAttribute(Qt.WA_TransparentForMouseEvents)
+        
+        layout.addWidget(self.title)
+
+        layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+
+        self.minimize_button = hover_svg("./Icons/minus.svg", 25, 25)
+        self.minimize_button.mouseReleaseEvent = lambda event: self.parent_window.showMinimized()
+
+        layout.addWidget(self.minimize_button)
+
+        self.close_button = hover_svg("./Icons/close.svg", 25, 25)
+        self.minimize_button.mouseReleaseEvent = lambda event: self.parent_window.close()
+
+        layout.addWidget(self.close_button)
+
+    def paintEvent(self, event):
+        opt = QStyleOption()
+        opt.initFrom(self)
+
+        painter = QPainter(self)
+
+        self.style().drawPrimitive(QStyle.PE_Widget, opt, painter, self)
+
+        if not self._transition_pix.isNull():
+            painter.setOpacity(self._transition_opacity)
+            painter.drawPixmap(0,0, self._transition_pix)
+        if self._night_acrylic_opacity > 0.0:
+            night_strength = int(255 * self._night_acrylic_opacity)
+            night_gradient = QLinearGradient(0, 0, 0, self.height() - 1)
+            night_gradient.setColorAt(0.00, QColor(0, 0, 0, night_strength))
+            night_gradient.setColorAt(0.45, QColor(0, 0, 0, int(night_strength * 0.70)))
+            night_gradient.setColorAt(0.80, QColor(0, 0, 0, int(night_strength * 0.15)))
+            night_gradient.setColorAt(1.00, QColor(0, 0, 0, 0))
+
+            painter.setOpacity(1.0)
+            painter.fillRect(self.rect(), night_gradient)
+        if self._loading_opacity > 0.0:
+            painter.setOpacity(self._loading_opacity)
+            painter.fillRect(self.rect(), QColor(35,35,35))
+    
+    def set_opacity_transition(self, opacity):
+        self._transition_opacity = max(0.0, min(1.0, float(opacity)))
+        self.update()
+    
+    def set_mode_night(self, night=False):
+        self._night_acrylic_opacity = 0.45 if night else 0.0
+        self.update()
+
+    def get_opacity_when_loading(self):
+        return self._loading_opacity
+
+    def set_opacity_when_loading(self, opacity):
+        self._loading_opacity = max(0.0, min(1.0, float(opacity)))
+        self.update()
+    
+
+    loadingOpacity = pyqtProperty(float, get_opacity_when_loading, set_opacity_when_loading)
+
+    def set_surface_loadin(self, loading):
+        target_opacity = 1.0 if loading else 0.0
+
+        if self._loading_animation is not None:
+            self._loading_animation.stop()
+
+        self._loading_animation = QPropertyAnimation(self, b"loadingOpacity", self)
+        self._loading_animation.setDuration(400)
+        self._loading_animation.setStartValue(self._loading_opacity)
+        self._loading_animation.setEndValue(target_opacity)
+        self._loading_animation.setEasingCurve(QEasingCurve.InOutQuad)
+        self._loading_animation.start()
+
+    def set_transition_bg(self, background_row, live_row_strip):
+        source_row = background_row.toImage()
+        if source_row.width() != self.width():
+            source_row = source_row.scaled(self.width(), 1, Qt.IgnoreAspectRatio, Qt,FastTransformation)
+        live_image = live_row_strip.toImage
+
+        if (self._background_row_img is not None and self._background_row_img == source_row and self._live_strip_img == live_image):
+            return
+        
+        self._background_row_img = source_row
+        self._live_strip_img = live_image
+
+        transition = QPixmap(self.width(), self.height())
+        transition.fill(Qt.transparent)
+
+        painter = QPainter(transition)
+        painter.drawPixmap(0,0, self.width(), self.height(), QPixmap.fromImage(source_row))
+
+        painter.setCompositionMode(QPainter.CompositionMode_DestinationIn)
+
+        alpha_gradient = QLinearGradient(0,0,0, self.height()-1)
+        alpha_gradient.setColorAt(0, QColor(0,0,0,0))
+        alpha_gradient.setColorAt(0.50, QColor(0,0,0,70))
+        alpha_gradient.setColorAt(0.85, QColor(0,0,0,200))
+        alpha_gradient.setColorAt(1, QColor(0,0,0,255))
+        painter.fillRect(transition.rect(), alpha_gradient)
+        painter.end(
+
+        )
+
+        self._transition_pix = transition
+        self.update()
+    
+    def clear_transition(self):
+        self._background_row_img = None
+        self._live_strip_img = None
+        self._transition_pix = QPixmap()
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.setCursor(Qt.ClosedHandCursor)
+            ctypes.windll.user32.ReleaseCapture()
+            ctypes.windll.user32.SendMessageW(int(self.parent_window.winId()), 0xA1, 2, 0)
+            event.accept()
+
+class ViewportWid(QWidget):
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        for background_name in ("bg", "weather_bg_label"):
+            background = getattr(self, background_name, None)
+            if background is not None:
+                background.setGeometry(self.rect())
+
+
+class PopupHost(QWidget):
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self._main_window = main_window
+    
+    def __getattr__(self, attribute):
+        return getattr(self._main_window, attribute)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__()
-        self.setFixedSize(SIZE[0], SIZE[1])
         # ---------------------- Window ---------------------- #
+        
+        super().__init__()
+
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        blur(int(self.winId()))
+
+        self.setFixedSize(SIZE[0], SIZE[1])
+
         self.windowsize = (SIZE[0], SIZE[1])
         self.refresh_rate = refresh
         self.frequency = int(round(1000/self.refresh_rate, 0))
         self.active_threads = []
         
-        # ---------------------- Window ---------------------- #
         self.friction = 0.92
         self.sensitvity = 0.03
         self.yv = 0
@@ -58,13 +256,30 @@ class MainWindow(QMainWindow):
 
         theme = check_theme()
         
-        self.centralwidget = QWidget(self)
-        self.centralwidget.setStyleSheet("background: #0b0d0f;")
-        self.setCentralWidget(self.centralwidget)   
+        self.window_container = PopupHost(self)
+        window_layout = QVBoxLayout(self.window_container)
+        window_layout.setContentsMargins(0,0,0,0)
+        window_layout.setSpacing(0)
+
+        self.title_bar = AcrylicBar(self.window_container, self)
+        window_layout.addWidget(self.title_bar)
+
+        self.centralwidget = ViewportWid(self.window_container)
+        self.centralwidget.setFixedSize(SIZE[0], SIZE[1] - self.title_bar.height())
+        window_layout.addWidget(self.centralwidget)
+        
+        self.setCentralWidget(self.window_container)
+
+        content_layout = QVBoxLayout(self.centralwidget)
+        content_layout.setContentsMargins(0,0,0,0)
+        content_layout.setSpacing(0)
+        self.viewport_contianer = QWidget(self.centralwidget)
+        self.window_container.setStyleSheet("background: transparent; border: none;")
+        content_layout.addWidget(self.viewport_contianer)
 
         self.bg = QLabel(self.centralwidget)
         self.bg.setScaledContents(True)
-        self.bg.setGeometry(0,0,self.width(),self.height())
+        self.bg.setGeometry(0,0, SIZE[0], SIZE[1] - self.title_bar.height())
         self.bg.setPixmap(QPixmap("./Backgrounds/dark-theme.png"))
 
         self.bg_fade_effect = QGraphicsOpacityEffect(self.bg)
@@ -73,7 +288,7 @@ class MainWindow(QMainWindow):
 
         self.weather_bg_label = QLabel(self.centralwidget)
         self.weather_bg_label.setScaledContents(True)
-        self.weather_bg_label.setGeometry(0,0,self.width(),self.height())
+        self.weather_bg_label.setGeometry(0,0, SIZE[0], SIZE[1] - self.title_bar.height())
 
         self.weather_fade_effect = QGraphicsOpacityEffect(self.weather_bg_label)
         self.weather_fade_effect.setOpacity(0.0)
@@ -94,6 +309,8 @@ class MainWindow(QMainWindow):
 
         self.popup_active = False
 
+        self.popup_title_transition_active = False
+
         self.initial_place = True
 
         self.add_coords = None
@@ -108,8 +325,8 @@ class MainWindow(QMainWindow):
 
         # Init Viewport and screening (content)
 
-        self.viewport = QWidget(self.centralwidget)
-        self.viewport.setGeometry(0, 0, 878, 2280)
+        self.viewport = QWidget(self.viewport_contianer)
+        self.viewport.setGeometry(0, 0, 878, 2030)
         self.viewport.setStyleSheet("background: transparent; border: none; border-radius: 0px;")
         
         edit_html()
@@ -126,6 +343,11 @@ class MainWindow(QMainWindow):
         self.loading.show()
         self.loading.raise_()
 
+        self.title_edge_timer = QTimer(self)
+        self.title_edge_timer.timeout.connect(self.update_title_edge)
+        self.title_edge_timer.start(self.frequency)
+        QTimer.singleShot(0, self.update_title_edge)
+
         self.wait = WeatherWait(self.location, precise=self.precise)
         self.wait.data.connect(self.loaded)
         self.wait.error.connect(self.error)
@@ -137,6 +359,7 @@ class MainWindow(QMainWindow):
                 dash_config = json.load(d)
         except Exception as e:
             print(e)
+            dash_config = {}
 
         locs = []
 
@@ -216,7 +439,7 @@ class MainWindow(QMainWindow):
             if self.ismorning:
                 choice = random.choice([1, 2])
                 if choice == 1:
-                    self.bg_pixmap == QPixmap("./Backgrounds/thunderstorm/blurred.png")
+                    self.bg_pixmap = QPixmap("./Backgrounds/thunderstorm/blurred.png")
                     self.element = QPixmap("./Backgrounds/thunderstorm/element.png")
                 else:
                     self.bg_pixmap = QPixmap("./Backgrounds/thunderstorm/blurred1.png")
@@ -361,6 +584,8 @@ class MainWindow(QMainWindow):
             self.ismorning = False
         else:
             self.ismorning = True
+
+        self.title_bar.set_mode_night(not self.ismorning)
         
         tz_offset = self.current_weather_data['timezone']
 
@@ -438,13 +663,21 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.inertia)
         self.timer.start(self.frequency)
 
+        if not hasattr(self, 'title_edge_timer'):
+            self.title_edge_timer = QTimer(self)
+            self.title_edge_timer.timeout.connect(self.update_title_edge)
+        self.title_edge_timer.start(self.frequency)
+
+        QTimer.singleShot(0, self.update_title_edge)
+        
+
         self.load_fade = QGraphicsOpacityEffect(self.loading)
         self.load_fade.setOpacity(0.0)
         
         if not self.first_load:
             self.loading = Loading_Icon("./Icons/loading.svg", 64)
             self.loading.setParent(self.centralwidget)
-            self.loading.move((self.width()-self.loading.width())//2, (self.height()-self.loading.height())//2)
+            self.loading.move(self.centralwidget.width()-self.loading.width()//2, self.centralwidget.height()-self.loading.height()//2)
             self.loading.show()
             self.loading.raise_()
             self.loading.setGraphicsEffect(self.load_fade)
@@ -473,12 +706,67 @@ class MainWindow(QMainWindow):
 
         self.fade_out.finished.connect(self.fade_in.start)
 
-        QTimer.singleShot(10, self.fade_out.start)
-        
+        def begin_content_transition():
+            self.title_bar.set_surface_loadin(False)
+            self.fade_out.start()
 
+        QTimer.singleShot(10, begin_content_transition)
+        
+    def update_title_edge(self):
+        if not hasattr(self, 'centralwidget') or not self.centralwidget:
+            return
+        
+        if self.popup_title_transition_active:
+            return
+        
+        active_background = self.weather_bg_label
+        weather_pixmap = active_background.pixmap()
+
+        if weather_pixmap is None or weather_pixmap.isNull():
+            active_background = self.bg
+        
+        content_width = active_background.width()
+        if content_width <= 0 or active_background.height() <= 0:
+            return
+
+        background_pixmap = active_background.pixmap()
+        background_top_row = background_pixmap.copy(0,0, background_pixmap.width(), 1).scaled(content_width, 1, Qt.IgnoreAspectRatio, Qt.FastTransformation)
+
+        title_height = self.title_bar.height()
+        viewport_top = max(0, -int(round(self.yv)))
+        visible_strip_height = min(title_height, viewport_top+1)
+        source_y = viewport_top - visible_strip_height + 1
+
+        live_strip = QPixmap(content_width, title_height)
+        live_strip.fill(Qt.transparent)
+        
+        source_strip = self.viewport.grab(QRect(0, source_y, content_width, visible_strip_height))
+
+        painter = QPainter(live_strip)
+        painter.drawPixmap(0, title_height - visible_strip_height, source_strip)
+        painter.end()
+
+        self.title_bar.set_transition_bg(background_top_row, live_strip)
+
+    def capture_title_popup_transition(self, popup):
+        if popup is None or sip.isdeleted(popup):
+            return
+        
+        self.title_bar.set_opacity_transition(1.0)
+        self.popup_title_transition_active = True
+
+        if not getattr(popup, '_title_transition_active', False):
+            popup.fade.valueChanged.connect(lambda val: self.title_bar.set_opacity_transition(1.0 - float(val)))
+            popup._title_transition_active = True
+    
+    def clear_title_popup_transition(self):
+        self.popup_title_transition_active = False
+        self.title_bar.set_opacity_transition(1.0)
+        QTimer.singleShot(0, self.update_title_edge)
 
     def error(self, msg):
         print(f"Error -                {msg}")
+        self.title_bar.set_surface_loadin(False)
         error_label = text("Error retrieving data...", "white", poppins("semi bold"), 20, self.viewport)
         error_label.setAlignment(Qt.AlignCenter)
         error_label.setGeometry(0, 0, self.viewport.width(), self.viewport.height())
@@ -683,8 +971,11 @@ class MainWindow(QMainWindow):
             
             theme = check_theme()
             
-            self.searchpop = Popup(self)
+            self.searchpop = Popup(self.window_container)
+            self.title_bar.raise_()
             self.searchpop.destroyed.connect(lambda: setattr(self, 'searchpop', None))
+            self.searchpop.destroyed.connect(lambda *_: self.clear_title_popup_transition())
+            QTimer.singleShot(0, lambda popup=self.searchpop: self.capture_title_popup_transition(popup))
             
             if theme == 0 and self.searchpop:
                 self.searchpop.dim.setStyleSheet("background: rgba(0,0,0,0);")
@@ -921,13 +1212,14 @@ class MainWindow(QMainWindow):
 
         self.loading = Loading_Icon("./Icons/loading.svg", 64 )
         self.loading.setParent(self.centralwidget)
-        self.loading.move((self.width()-self.loading.width())//2, (self.height()-self.loading.height())//2)
+        self.loading.move((self.centralwidget.width()-self.loading.width())//2, (self.centralwidget.height()-self.loading.height())//2)
 
         self.load_fade = QGraphicsOpacityEffect(self.loading)
         self.load_fade.setOpacity(1.0)
         self.loading.show()
         self.loading.raise_()
         self.loading.setGraphicsEffect(self.load_fade)
+        self.title_bar.set_surface_loadin(True)
 
         self.new_weather = WeatherWait(self.location)
         self.new_weather.data.connect(self.loaded)
@@ -948,8 +1240,11 @@ class MainWindow(QMainWindow):
 
     def settings(self, event):
         if not hasattr(self, 'settingspop') or self.settingspop == None:
-            self.settingspop = Popup(self)
+            self.settingspop = Popup(self.window_container)
+            self.title_bar.raise_()
             self.settingspop.destroyed.connect(lambda: setattr(self, 'settingspop', None))
+            self.settingspop.destroyed.connect(lambda *_: self.clear_title_popup_transition())
+            QTimer.singleShot(0, lambda popup=self.settingspop: self.capture_title_popup_transition(popup))
             
             def cleanup():
                 self.settingspop = None 
@@ -1163,8 +1458,11 @@ class MainWindow(QMainWindow):
     def dashboard(self, event):
         global low, hi
         if not hasattr(self, 'dashboardpop') or self.dashboardpop == None:
-            self.dashboardpop = Popup(self, clear=False)
+            self.dashboardpop = Popup(self.window_container, clear=False)
+            self.title_bar.raise_()
             self.dashboardpop.destroyed.connect(lambda: setattr(self, 'dashboardpop', None))
+            self.dashboardpop.destroyed.connect(lambda *_: self.clear_title_popup_transition())
+            QTimer.singleShot(0, lambda popup=self.dashboardpop: self.capture_title_popup_transition(popup))
             self.dashboardpop.installEventFilter(self)
 
             self.selected = []
@@ -2199,12 +2497,12 @@ class MainWindow(QMainWindow):
         
         
 
-        self.popup_card = Card(self.centralWidget(), self.element, 500)
+        self.popup_card = Card(self.centralwidget, self.element, 500)
         self.popup_card.setFixedWidth(700)
         self.popup_card.bg.hide()
         self.popup_card.dark.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
-        self.popup_card.move((self.width()-self.popup_card.width())//2, (self.height()-self.popup_card.height())//2)
+        self.popup_card.move((self.centralwidget.width()-self.popup_card.width())//2, (self.centralwidget.height()-self.popup_card.height())//2)
         
 
         # Creates map ----------------------
@@ -2232,6 +2530,7 @@ class MainWindow(QMainWindow):
 
         self.popup_card.show()
         self.popup_card.raise_()
+        self.title_bar.raise_()
         
     def hide_popup(self):
         self.viewport.setGraphicsEffect(None)
