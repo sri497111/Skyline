@@ -364,7 +364,6 @@ class MainWindow(QMainWindow):
 
         self.title_edge_timer = QTimer(self)
         self.title_edge_timer.timeout.connect(self.update_title_edge)
-        self.title_edge_timer.start(self.frequency)
         QTimer.singleShot(0, self.update_title_edge)
 
         self.wait = WeatherWait(self.location, precise=self.precise)
@@ -726,8 +725,6 @@ class MainWindow(QMainWindow):
 
         QApplication.processEvents()
 
-        self.update_title_edge()
-
         self.timer = QTimer()
         self.timer.timeout.connect(self.inertia)
         self.timer.start(self.frequency)
@@ -736,8 +733,6 @@ class MainWindow(QMainWindow):
             self.title_edge_timer = QTimer(self)
             self.title_edge_timer.timeout.connect(self.update_title_edge)
         self.title_edge_timer.start(self.frequency)
-
-        QTimer.singleShot(0, self.update_title_edge)
         
 
         self.load_fade = QGraphicsOpacityEffect(self.loading)
@@ -784,7 +779,13 @@ class MainWindow(QMainWindow):
         self.reveal_group.addAnimation(self.title_gradient_fade)
 
         self.reveal_group.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
-        self.fade_out.finished.connect(self.reveal_group.start)
+        def reveal():
+            QApplication.processEvents()
+            self.update_title_edge()
+            self.title_edge_timer.start(self.frequency)
+            self.reveal_group.start()
+
+        self.fade_out.finished.connect(reveal)
 
         def begin_content_transition():
             self.fade_out.start()
@@ -1259,6 +1260,8 @@ class MainWindow(QMainWindow):
 
         if hasattr(self, 'timer') and self.timer is not None:
             self.timer.stop()
+            if hasattr(self, 'title_edge_timer'):
+                self.title_edge_timer.stop()
 
         hide_viewport = QGraphicsOpacityEffect()
         hide_viewport.setOpacity(0.0)
