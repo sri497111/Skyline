@@ -732,9 +732,7 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'title_edge_timer'):
             self.title_edge_timer = QTimer(self)
             self.title_edge_timer.timeout.connect(self.update_title_edge)
-        self.title_edge_timer.start(self.frequency)
         
-
         self.load_fade = QGraphicsOpacityEffect(self.loading)
         self.load_fade.setOpacity(0.0)
         
@@ -772,13 +770,18 @@ class MainWindow(QMainWindow):
         self.title_gradient_fade.setDuration(400)
         self.title_gradient_fade.setStartValue(0.0)
         self.title_gradient_fade.setEndValue(1.0)
-        self.title_gradient_fade.setEasingCurve(QEasingCurve.InOutQuad)
+        self.title_gradient_fade.setEasingCurve(QEasingCurve.InOutQuad) 
+        self.fade_in.setEasingCurve(QEasingCurve.InOutQuad)
 
         self.reveal_group = QParallelAnimationGroup(self)        
         self.reveal_group.addAnimation(self.fade_in)
         self.reveal_group.addAnimation(self.title_gradient_fade)
 
-        self.reveal_group.finished.connect(lambda: self.viewport.setGraphicsEffect(None))
+        def finish_reveal():
+            self.viewport.setGraphicsEffect(None)
+            self.location_loading = False
+
+        self.reveal_group.finished.connect(finish_reveal)
         def reveal():
             QApplication.processEvents()
             self.update_title_edge()
@@ -841,6 +844,12 @@ class MainWindow(QMainWindow):
     
     def clear_title_popup_transition(self):
         self.popup_title_transition_active = False
+        
+        if self.location_loading:
+            self.title_bar.clear_transition()
+            self.title_bar.set_opacity_transition(0.0)
+            return
+        
         self.title_bar.set_opacity_transition(1.0)
         QTimer.singleShot(0, self.update_title_edge)
 
@@ -1254,6 +1263,7 @@ class MainWindow(QMainWindow):
     def change_location(self, event, coords, loc_name=None):
         self.target_location = loc_name
         self.results = None
+        self.location_loading = True
 
         if hasattr(self, 'searchpop') and self.searchpop:
             self.searchpop.exit_popup()
@@ -1314,6 +1324,7 @@ class MainWindow(QMainWindow):
         self.new_weather.finished.connect(self.loading.hide)
 
         self.first_load = False
+        self.location_loading = False
         self.initial_place = False
 
         show_viewport = QGraphicsOpacityEffect()
