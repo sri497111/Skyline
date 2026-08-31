@@ -11,7 +11,7 @@ from PyQt5 import sip
 
 # Modules
 from ui_engine import Card, text, Button, poppins, svg, hover_svg, Loading_Icon, Popup, RadioButton, mouse_press_dim, mouse_release_dim, hover_text, WeatherCard
-from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWait, MapWorker, Insights, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html, get_map_preview
+from retrieve import Weather, WeatherWait, DashboardWeather, DashboardWeatherWait, MapWorker, Insights, parse_hourly_forecast, parse_daily_forecast, parse_forecast_for_precip, edit_html, edit_html_coords
 from settings import load_settings, update_settings, check_theme
 from system import internet_check
 from location import *
@@ -662,6 +662,8 @@ class MainWindow(QMainWindow):
         self.sunset = local_sunset.strftime("%#I:%M %p")
 
         self.set_background_image(self.current_condition, self.current_weather_description)
+
+        edit_html_coords(self.location[0], self.location[1])
 
         # Init Widgets
 

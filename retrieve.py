@@ -283,6 +283,38 @@ def edit_html(reverse=False):
     else:
         open_replace("./map.html")
 
+def replace_lat_html(lat):
+    file = Path("./map.html")
+    content = file.read_text()
+    new_content = content.replace("lat_fill", str(lat))
+    file.write_text(new_content)
+
+def replace_lon_html(lon):
+    file = Path("./map.html")
+    content = file.read_text()
+    new_content = content.replace("lon_fill", str(lon))
+    file.write_text(new_content)
+
+def replace_html_lat(lat):
+    file = Path("./map.html")
+    content = file.read_text()
+    new_content = content.replace(f"{lat}", "lat_fill")
+    file.write_text(new_content)
+
+def replace_html_lon(lon):
+    file = Path("./map.html")
+    content = file.read_text()
+    new_content = content.replace(f"{lon}", "lon_fill")
+    file.write_text(new_content)
+
+def edit_html_coords(lat, lon, reverse=False):
+    if not reverse:
+        replace_lat_html(lat)
+        replace_lon_html(lon)
+    else:
+        replace_html_lat(lat)
+        replace_html_lon(lon)
+
 class MapWorker(QObject):
     finished = pyqtSignal(object)
     def __init__(self, location, theme, precise):
