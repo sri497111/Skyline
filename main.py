@@ -742,7 +742,6 @@ class MainWindow(QMainWindow):
             self.loading.move(self.centralwidget.width()-self.loading.width()//2, self.centralwidget.height()-self.loading.height()//2)
             self.loading.show()
             self.loading.raise_()
-            self.title_bar.set_surface_loadin(True)
             self.loading.setGraphicsEffect(self.load_fade)
 
         self.fade_out = QPropertyAnimation(self.load_fade, b"opacity")
@@ -774,7 +773,7 @@ class MainWindow(QMainWindow):
         self.fade_in.setEasingCurve(QEasingCurve.InOutQuad)
 
         self.reveal_group = QParallelAnimationGroup(self)        
-        self.reveal_group.addAnimation(self.fade_in)
+        self.reveal_group.addAnimation(self.fade_out)
         self.reveal_group.addAnimation(self.title_gradient_fade)
 
         def finish_reveal():
@@ -782,16 +781,17 @@ class MainWindow(QMainWindow):
             self.location_loading = False
 
         self.reveal_group.finished.connect(finish_reveal)
+        
         def reveal():
-            QApplication.processEvents()
-            self.update_title_edge()
             self.title_edge_timer.start(self.frequency)
-            self.reveal_group.start()
+            self.fade_in.start()
 
-        self.fade_out.finished.connect(reveal)
+        self.reveal_group.finished.connect(reveal)
 
         def begin_content_transition():
-            self.fade_out.start()
+            QApplication.processEvents()
+            self.update_title_edge()
+            self.reveal_group.start()
 
         QTimer.singleShot(10, begin_content_transition)
         
@@ -1263,7 +1263,6 @@ class MainWindow(QMainWindow):
     def change_location(self, event, coords, loc_name=None):
         self.target_location = loc_name
         self.results = None
-        self.location_loading = True
 
         if hasattr(self, 'searchpop') and self.searchpop:
             self.searchpop.exit_popup()
