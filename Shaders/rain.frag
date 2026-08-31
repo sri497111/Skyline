@@ -111,17 +111,21 @@ void main() {
     );
 
     vec2 bgCoord = vec2(gl_FragCoord.x, iResolution.y - gl_FragCoord.y);
-    vec2 bgUV = bgCoord / iChannelResolution;
-
-    if (c.x > 0.0) {
-        bgUV -= n * 1.2;
-    }
+    vec2 originalBgUV = bgCoord / iChannelResolution;
+    vec4 originalTexColor = texture2D(iChannel0, originalBgUV);
 
     float mask = roundedRectMask(gl_FragCoord.xy, iResolution);
 
-    if (mask <= 0.0) {
-        discard;
+    vec2 bgUV = originalBgUV;
+
+    if (c.x > 0.0 && mask > 0.0) {
+        bgUV -= n * 1.2;
     }
 
-    gl_FragColor = vec4(texture2D(iChannel0, bgUV).rgb, mask);
+    vec4 rainTexColor = texture2D(iChannel0, bgUV);
+
+    gl_FragColor = vec4(
+        rainTexColor.rgb,
+        originalTexColor.a * mask
+    );
 }
