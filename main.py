@@ -736,13 +736,10 @@ class MainWindow(QMainWindow):
         self.load_fade = QGraphicsOpacityEffect(self.loading)
         self.load_fade.setOpacity(0.0)
         
-        if not self.first_load:
-            self.loading = Loading_Icon("./Icons/loading.svg", 64)
-            self.loading.setParent(self.centralwidget)
-            self.loading.move(self.centralwidget.width()-self.loading.width()//2, self.centralwidget.height()-self.loading.height()//2)
-            self.loading.show()
-            self.loading.raise_()
+        if not hasattr(self, 'load_fade') or self.load_fade is None:
+            self.load_fade = QGraphicsOpacityEffect(self.loading)
             self.loading.setGraphicsEffect(self.load_fade)
+        self.load_fade.setOpacity(1.0)
 
         self.fade_out = QPropertyAnimation(self.load_fade, b"opacity")
         self.fade_out.setDuration(400)
