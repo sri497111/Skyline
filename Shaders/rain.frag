@@ -67,9 +67,7 @@ vec2 DropLayer2(vec2 uv, float t) {
     float dd = length(st - vec2(x, y));
     droplets = S(.3, 0., dd);
 
-    float m = mainDrop + droplets * r * trailFront;
-
-    return vec2(m, trail);
+    return vec2(mainDrop + droplets * r * trailFront, trail);
 }
 
 float StaticDrops(vec2 uv, float t) {
@@ -90,10 +88,15 @@ vec2 Drops(vec2 uv, float t) {
 
     s *= S(0.2, 0.0, m1.x + m2.x);
 
-    float c = s + m1.x + m2.x;
-    c = S(.3, 1., c);
-
+    float c = S(.3, 1., s + m1.x + m2.x);
     return vec2(c, max(m1.y * 2.0, m2.y));
+}
+
+float roundedRectMask(vec2 position, vec2 size) {
+    float radius = 55.0;
+    vec2 q = abs(position - size * 0.5) - (size * 0.5 - radius);
+    float distanceToEdge = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+    return 1.0 - smoothstep(0.0, 1.0, distanceToEdge);
 }
 
 void main() {
@@ -114,5 +117,11 @@ void main() {
         bgUV -= n * 1.2;
     }
 
-    gl_FragColor = vec4(texture2D(iChannel0, bgUV).rgb, 1.0);
+    float mask = roundedRectMask(gl_FragCoord.xy, iResolution);
+
+    if (mask <= 0.0) {
+        discard;
+    }
+
+    gl_FragColor = vec4(texture2D(iChannel0, bgUV).rgb, mask);
 }
