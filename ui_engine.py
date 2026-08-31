@@ -13,6 +13,7 @@ from shaders import RainShaderOverlay, SnowShaderOverlay
 from system import *
 
 import requests
+import random
 import json
 import math
 
@@ -846,7 +847,7 @@ def mouse_release_dim(obj, callback=None):
     return wrapper
 
 class WeatherCard(RegularCard):
-    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition=800, current_temp=72, hi=67, low=99, description="", morning=None):
+    def __init__(self, parent, background, location_name="Cupertino", lat=0, lon=0, current_condition=800, current_temp=72, hi=67, low=99, description="", morning=None, nearsun=False):
         super().__init__(parent, background, 200, rain_effect=True if current_condition in (500, 501, 502, 503, 504, 520, 521, 522, 531) or current_condition in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232) or current_condition in (300, 301, 302, 310, 311, 312, 321) else False)
 
         self.setFixedWidth(600)
@@ -867,6 +868,7 @@ class WeatherCard(RegularCard):
         self.low = low
 
         self.ismorning = morning
+        self.nearsun = nearsun
 
         self.weather_layout = QHBoxLayout(self)
         self.weather_layout.setContentsMargins(50,25,50,25)
@@ -921,10 +923,17 @@ class WeatherCard(RegularCard):
         try:
             if current_condition == 800:
                 self.cond = "Clear"
-                if self.ismorning:
-                    self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
+                if not self.nearsun:
+                    if self.ismorning:
+                        self.pixmap = QPixmap("./Backgrounds/clear/dash1.png")
+                    else:
+                        self.pixmap = QPixmap("./Backgrounds/clear/dash2.png")
                 else:
-                    self.pixmap = QPixmap("./Backgrounds/clear/dash2.png")
+                    choice = random.choice([1, 2])
+                    if choice == 1:
+                        self.pixmap = QPixmap("./Backgrounds/clear/dash3.png")
+                    else:
+                        self.pixmap = QPixmap("./Backgrounds/clear/dash4.png")
             elif current_condition == 804:
                 self.cond = "Cloudy"
                 if self.ismorning:
@@ -933,10 +942,13 @@ class WeatherCard(RegularCard):
                     self.pixmap = QPixmap("./Backgrounds/cloudy/dash2.png")
             elif current_condition in (801, 802):
                 self.cond = "Partly Cloudy"
-                if self.ismorning:
-                    self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
+                if not self.nearsun:
+                    if self.ismorning:
+                        self.pixmap = QPixmap("./Backgrounds/partly/dash1.png")
+                    else:
+                        self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
                 else:
-                    self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
+                    self.pixmap = QPixmap("./Backgrounds/partly/dash3.png")
             elif current_condition == 803:
                 self.cond = "Mostly Cloudy"
                 if self.ismorning:

@@ -643,14 +643,15 @@ class MainWindow(QMainWindow):
         sunrise_unix = self.current_weather_data['sys']['sunrise']
         sunset_unix = self.current_weather_data['sys']['sunset']
 
-        current_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        current_time = self.current_weather_data['dt']
         
         self.ismorning = sunrise_unix <= current_time <= sunset_unix
         self.nearsun = (
-            sunrise_unix - (45 * 60) <= current_time <= sunrise_unix + (45 * 60) 
+            sunrise_unix - (45 * 60) <= current_time <= sunrise_unix + (60 * 60) 
             or
-            sunset_unix - (45 * 60) <= current_time <= sunset_unix + (45 * 60)
+            sunset_unix - (60 * 60) <= current_time <= sunset_unix + (45 * 60)
         )
+
         self.title_bar.set_mode_night(not self.ismorning)
 
         tz_offset = self.current_weather_data['timezone']
@@ -896,7 +897,16 @@ class MainWindow(QMainWindow):
                 sys_data = current_info.get("sys", {})
                 ismorning = sys_data.get("sunrise", 0) <= datetime.datetime.now(datetime.timezone.utc).timestamp() < sys_data.get("sunset", 0)
 
-                self.dash_weather.append([location_name, condition, current_temp, hi, low, desc, ismorning])
+                sunrise = sys_data.get("sunrise", 0)
+                sunset = sys_data.get("sunset", 0)
+                now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+                nearsun = (
+                    sunrise - (45 * 60) <= now <= sunrise + (60 * 60) 
+                    or
+                    sunset - (60 * 60) <= now <= sunset + (45 * 60)
+                )
+                
+                self.dash_weather.append([location_name, condition, current_temp, hi, low, desc, ismorning, nearsun])
 
 
 
@@ -1257,6 +1267,9 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(50, self.suggestions.updatePixmap)
 
     def change_location(self, event, coords, loc_name=None):
+        edit_html_coords(self.location[0], self.location[1], reverse=True)
+        edit_html_coords(coords[0], coords[1])
+
         self.target_location = loc_name
         self.results = None
         self.location_loading = True
@@ -1666,6 +1679,7 @@ class MainWindow(QMainWindow):
 
                         try:
                             ismorning = self.dash_weather[idx-1][6]
+                            nearsun = self.dash_weather[idx-1][7]
                         except IndexError:
                             pass
 
@@ -1676,7 +1690,7 @@ class MainWindow(QMainWindow):
                         low = "--"
                         ismorning = True
                     
-                    card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low, description=current_desc, morning=ismorning)
+                    card = WeatherCard(self.dashboard_container, opaque_element, location_name=loc_name, current_condition=current_weather, current_temp=current_temp, hi=hi, low=low, description=current_desc, morning=ismorning, nearsun=nearsun)
 
                     card.location_name = card_info.get("location_name", "")
                     card.lat = card_info.get("lat", 0)
@@ -2594,9 +2608,7 @@ class MainWindow(QMainWindow):
         self.blur = QGraphicsBlurEffect()
         self.blur.setBlurRadius(25)
         self.blur.setBlurHints(QGraphicsBlurEffect.QualityHint)
-        self.viewport.setGraphicsEffect(self.blur)
-        
-        
+        self.viewport_container.setGraphicsEffect(self.blur)
 
         self.popup_card = Card(self.centralwidget, self.element, 500)
         self.popup_card.setFixedWidth(700)
@@ -2623,7 +2635,6 @@ class MainWindow(QMainWindow):
 
         self.path = os.path.abspath("./map.html")
 
-        map_widget.setUrl(QUrl.fromLocalFile(self.path))
         map_layout.addWidget(map_widget)
         
         QApplication.processEvents()
@@ -2632,9 +2643,11 @@ class MainWindow(QMainWindow):
         self.popup_card.show()
         self.popup_card.raise_()
         self.title_bar.raise_()
+
+        map_widget.setUrl(QUrl.fromLocalFile(self.path))
         
     def hide_popup(self):
-        self.viewport.setGraphicsEffect(None)
+        self.viewport_container.setGraphicsEffect(None)
         if hasattr(self, "popup_card"):
             if not sip.isdeleted(self.popup_card):
                 layout = self.popup_card.layout()
@@ -3150,7 +3163,7 @@ class MainWindow(QMainWindow):
             else:
                 try: 
                     if current_os == "Windows":
-                        os.startfile(os.path.abspath(file))
+                        os.startfile(os.path.abspath(file)) 
                     elif current_os == "Darwin":
                         subprocess.run(['open', os.path.abspath(file)])
                     else:
@@ -3161,10 +3174,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         edit_html(reverse=True)
+        edit_html_coords(self.location[0], self.location[1], reverse=True)
         event.accept()
                     
 
-        
 def main():
 
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
