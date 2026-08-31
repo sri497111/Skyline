@@ -733,9 +733,6 @@ class MainWindow(QMainWindow):
             self.title_edge_timer = QTimer(self)
             self.title_edge_timer.timeout.connect(self.update_title_edge)
         
-        self.load_fade = QGraphicsOpacityEffect(self.loading)
-        self.load_fade.setOpacity(0.0)
-        
         if not hasattr(self, 'load_fade') or self.load_fade is None:
             self.load_fade = QGraphicsOpacityEffect(self.loading)
             self.loading.setGraphicsEffect(self.load_fade)
@@ -777,7 +774,7 @@ class MainWindow(QMainWindow):
             self.viewport.setGraphicsEffect(None)
             self.location_loading = False
 
-        self.reveal_group.finished.connect(finish_reveal)
+        self.fade_in.finished.connect(finish_reveal)
         
         def reveal():
             self.title_edge_timer.start(self.frequency)
@@ -1260,6 +1257,7 @@ class MainWindow(QMainWindow):
     def change_location(self, event, coords, loc_name=None):
         self.target_location = loc_name
         self.results = None
+        self.location_loading = True
 
         if hasattr(self, 'searchpop') and self.searchpop:
             self.searchpop.exit_popup()
@@ -1268,6 +1266,9 @@ class MainWindow(QMainWindow):
             self.timer.stop()
             if hasattr(self, 'title_edge_timer'):
                 self.title_edge_timer.stop()
+
+        self.title_bar.clear_transition()
+        self.title_bar.set_opacity_transition(0.0)
 
         hide_viewport = QGraphicsOpacityEffect()
         hide_viewport.setOpacity(0.0)
@@ -1320,7 +1321,6 @@ class MainWindow(QMainWindow):
         self.new_weather.finished.connect(self.loading.hide)
 
         self.first_load = False
-        self.location_loading = False
         self.initial_place = False
 
         show_viewport = QGraphicsOpacityEffect()
