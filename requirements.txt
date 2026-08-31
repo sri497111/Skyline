@@ -6,3 +6,4 @@ math
 os
 pyqtwebengine
 numpy
+ctypes

@@ -221,7 +221,11 @@ class Card(QFrame):
 
         self.path = QPainterPath()
         self.path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
-        
+        if hasattr(self, 'rain_shader'):
+            self.rain_shader.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
+        if hasattr(self, 'snow_shader'):
+            self.snow_shader.setMask(QRegion(self.path.toFillPolygon().toPolygon))
+
         #self.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         self.updatePixmap()
@@ -257,7 +261,7 @@ class Card(QFrame):
 class RegularCard(QFrame):
     clicked = pyqtSignal()
     
-    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None, rain_effect=False):
+    def __init__(self, parent, pixmap, h=200, window_size=(878, 550), radius=55, raise_dark=True, window_widget=None, rain_effect=False, snow_effect=False):
         super().__init__(parent)
         self.setFixedHeight(h)
         
@@ -306,6 +310,15 @@ class RegularCard(QFrame):
             self.rain_shader.show()
             self.rain_shader.raise_()
 
+        if snow_effect:
+            self.snow_shader = SnowShaderOverlay(self, self.pixmap)
+            self.snow_shader.move(0, 0)
+
+            self.snow_shader.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+            self.snow_shader.show()
+            self.snow_shader.raise_()
+
         
 
     def updatePixmap(self):
@@ -333,6 +346,11 @@ class RegularCard(QFrame):
         painter = QPainter(smooth_pixmap)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+        if hasattr(self, 'rain_shader'):
+            self.rain_shader.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
+        if hasattr(self, 'snow_shader'):
+            self.snow_shader.setMask(QRegion(self.path.toFillPolygon().toPolygon()))
         
         path = QPainterPath()
         path.addRoundedRect(QRectF(smooth_pixmap.rect()), self.radius, self.radius)
@@ -951,10 +969,13 @@ class WeatherCard(RegularCard):
                     self.pixmap = QPixmap("./Backgrounds/partly/dash3.png")
             elif current_condition == 803:
                 self.cond = "Mostly Cloudy"
-                if self.ismorning:
-                    self.pixmap = QPixmap("./Backgrounds/partly/dash4.png")
+                if not self.nearsun:
+                    if self.ismorning:
+                        self.pixmap = QPixmap("./Backgrounds/partly/dash4.png")
+                    else:
+                        self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
                 else:
-                    self.pixmap = QPixmap("./Backgrounds/partly/dash2.png")
+                    self.pixmap = QPixmap("./Backgrounds/partly/dash3.png")
             elif current_condition in (500, 501, 502, 503, 504, 520, 521, 522, 531):
                 if current_condition == 500:
                     self.cond = "Light Rain"

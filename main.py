@@ -920,13 +920,20 @@ class MainWindow(QMainWindow):
             
             if hasattr(self, 'dashboardpop') and self.dashboardpop is not None and not sip.isdeleted(self.dashboardpop):
                 if hasattr(self, 'dashboard_container') and not sip.isdeleted(self.dashboard_container):
+                    card_count = len(self.dash_cards) + (1 if len(self.dash_cards) < 5 else 0)
+                    content_height = 100+(card_count * 200) + max((0, card_count - 1)*15)
+                    max_dash_scroll = max(0, content_height - self.dashboardpop.contentsRect().height())
                     
-                    if self.yv > 0:
+                    if self.yv == 0:
+                        self.yv = 0
+                        self.v = 0 
+                    elif self.yv > 0:
                         self.yv = 0
                         self.v = 0
-                    elif self.yv < -620:
-                        self.yv = -620
-                        self.v = 0        
+                    
+                    elif self.yv < -max_dash_scroll:
+                        self.yv = -max_dash_scroll
+                        self.v = 0
                     
                     self.sensitvity = 0.01
                     self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
@@ -960,47 +967,18 @@ class MainWindow(QMainWindow):
                     self.daily_forecast.updatePixmap()
                 
                 if hasattr(self, 'insights_card') and self.insights_card is not None and not sip.isdeleted(self.insights_card):
-                    self.insights_card.updatePixmap()
-                    if hasattr(self, 'insight_widget') and self.insight_widget is not None and not sip.isdeleted(self.insight_widget):
-                        self.insight_widget.update()
-                    if hasattr(self, 'insights_title_fade') and not sip.isdeleted(self.insights_title_fade):
-                        self.insights_title_fade.update()
-                    if hasattr(self, 'insights_title') and not sip.isdeleted(self.insights_title):
-                        self.insights_title.repaint()
-                        self.insights_title.raise_()
-                    if hasattr(self, 'insights_body_fade') and not sip.isdeleted(self.insights_body_fade):
-                        self.insights_body_fade.update()
-                    if hasattr(self, 'insights_body') and not sip.isdeleted(self.insights_body):
-                        self.insights_body.repaint()
-                        self.insights_body.raise_()
-                    if hasattr(self, 'dot1opacity') and not sip.isdeleted(self.dot1opacity):
-                        self.dot1opacity.update()
-                    if hasattr(self, 'dot1') and not sip.isdeleted(self.dot1):
-                        self.dot1.repaint()
-                        self.dot1.raise_()
-                    if hasattr(self, 'dot2opacity') and not sip.isdeleted(self.dot2opacity):
-                        self.dot2opacity.update()
-                    if hasattr(self, 'dot2') and not sip.isdeleted(self.dot2):
-                        self.dot2.repaint()
-                        self.dot2.raise_()
-                    if hasattr(self, 'dot3opacity') and not sip.isdeleted(self.dot3opacity):
-                        self.dot3opacity.update()
-                    if hasattr(self, 'dot3') and not sip.isdeleted(self.dot3):
-                        self.dot3.repaint()
-                        self.dot3.raise_()
-                    
-                
+                    self.insights_card.updatePixmap()            
                 if hasattr(self, 'uvf') and self.uvf is not None and not sip.isdeleted(self.uvf):
                     self.uvf.updatePixmap()
                 if hasattr(self, 'has') and self.has is not None and not sip.isdeleted(self.has):
                     self.has.updatePixmap()
                 if hasattr(self, 'weather_map_card') and self.weather_map_card is not None and not sip.isdeleted(self.weather_map_card):
                     self.weather_map_card.updatePixmap()
-                
-            
         else:
             if self.v != 0:
                 self.v = 0
+    
+    
     def eventFilter(self, watched, event):
         if event.type() == QEvent.Wheel:
             self.v += event.angleDelta().y() * self.sensitvity
@@ -1696,7 +1674,7 @@ class MainWindow(QMainWindow):
                     card.lat = card_info.get("lat", 0)
                     card.lon = card_info.get("lon", 0)
 
-                    card.index = i-1
+                    card.index = idx-1
                     card.dragging = False
                     card.drag_start_pos = None
                     card.original_y = 0
@@ -1707,14 +1685,11 @@ class MainWindow(QMainWindow):
 
                     card.updatePixmap()
 
-                    setattr(self, f'card{i}', card)
+                    setattr(self, f'card{idx}', card)
 
                     self.dash_cards.append(card)
                 
                     self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
-
-                    if card:
-                        self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
 
                 if hasattr(self, 'dash_cards') and self.dash_cards:
                     active_count = len(self.dash_cards)
@@ -1725,7 +1700,7 @@ class MainWindow(QMainWindow):
                 else:
                     active_count = 0
 
-                if active_count < 5:
+                if (not hasattr(self, 'add_card_btn') or self.add_card_btn is None or sip.isdeleted(self.add_card_btn)):
                     add = Card(self.dashboard_container, opaque_element, 200, raise_dark=False)
                     self.add_card_btn = add
                     add.setFixedWidth(600)
@@ -1852,9 +1827,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'add_coords') and self.add_coords:
             lat, lon = self.add_coords[0], self.add_coords[1]
             
-            count = len(self.dash_data)
+            count = len(self.dash_cards)
 
-            if count > 6:
+            if count >= 5:
                 return
             
             opaque_element = QPixmap("./Backgrounds/dark-element.png") if check_theme() == 0 else QPixmap("./Backgrounds/light-element.png")
@@ -1883,15 +1858,7 @@ class MainWindow(QMainWindow):
 
             self.dash_cards.append(card)
 
-            if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
-                self.dashboard_layout.removeWidget(self.add_card_btn)
-            
-            self.dashboard_layout.addWidget(card, alignment=Qt.AlignCenter)
-
-            if len(self.dash_cards) < 5 and hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
-                self.dashboard_layout.addWidget(self.add_card_btn, alignment=Qt.AlignCenter)
-            elif len(self.dash_cards) >= 5 and hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
-                self.add_card_btn.hide()
+            self.rebuild_dash()
 
             self.save_dashboard()
             self.refresh_dashboard_data()
@@ -2090,34 +2057,35 @@ class MainWindow(QMainWindow):
         card.anim.setEasingCurve(QEasingCurve.InOutQuad)
 
         def slide_finished():
-            if self.yv < 0:
-                self.yv = min(0, self.yv+215)
-                self.dashboard_container.move(self.dashboard_container.x(), int(self.yv))
+            card.hide()
 
             if card in self.dash_cards:
                 self.dash_cards.remove(card)
+
+            self.dashboard_layout.setEnabled(False)
             
-            if hasattr(card, 'placeholder') and card.placeholder:
+            if hasattr(card, 'placeholder') and card.placeholder and not sip.isdeleted(card.placeholder):
                 self.dashboard_layout.removeWidget(card.placeholder)
                 card.placeholder.deleteLater()
                 card.placeholder = None
             
-            card.deleteLater()
-
             rowh = 215
 
-            for idx, c in enumerate(self.dash_cards):
-                c.index = idx
-                target_y = (idx * rowh) + 50
-                self.glide(c, target_y)
+            for idx, other_card in enumerate(self.dash_cards):
+                other_card.index = idx
+                self.glide(other_card, (idx * rowh) + 50)
 
-            self.check_add_btn()
-            if hasattr(self, 'add_card_btn') and self.add_card and not sip.isdeleted(self.add_card_btn):
-                add_btn_target = (len(self.dash_cards) * rowh) + 50
-                self.glide(self.add_card_btn, add_btn_target)
+            if hasattr(self, 'add_card_btn') and self.add_card_btn and not sip.isdeleted(self.add_card_btn):
+                self.add_card_btn.show()
+                self.glide(self.add_card_btn, (len(self.dash_cards) * rowh) + 50)
 
-            QTimer.singleShot(225, self.check_add_btn)
-            self.save_dashboard()
+            def finish_flow():
+                card.deleteLater()
+                self.dashboard_layout.setEnabled(True)
+                self.rebuild_dash()
+                self.save_dashboard()
+
+            QTimer.singleShot(210, finish_flow)
 
         card.anim.finished.connect(slide_finished)
         card.anim.start()

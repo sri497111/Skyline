@@ -50,7 +50,9 @@ class RainShaderOverlay(QOpenGLWidget):
         return shader
     
     def initializeGL(self):
-        glClearColor(0.0, 0.0, 0.0, 1.0)
+        glClearColor(0.0, 0.0, 0.0, 0.0)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
         self.program = glCreateProgram()
         glAttachShader(self.program, self.compile_shader(RAINVERTEXSHADER, GL_VERTEX_SHADER))

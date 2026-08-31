@@ -120,8 +120,8 @@ LICENSE-URL: https://creativecommons.org
 Snow Shaders -
 
 (Derived from) - 
-NAME - "Heartfelt" By Martijn Steinrucken (BigWings)
-FROM: shadertoy.com (https://www.shadertoy.com/view/ltffzl) 
+NAME - Snow (as shown in sweden) by Emil
+FROM: shadertoy.com (https://www.shadertoy.com/view/Mdt3Df) 
 LICENSE: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported (CC BY-NC-SA 3.0)
 LICENSE-URL: https://creativecommons.org
 
@@ -151,6 +151,32 @@ LICENSE: CC Attribution License
 AUTHOR: Solar Icons
 
 From svgrepo.com (https://www.svgrepo.com/svg/529894/snowflake)
+
+---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
+Close Icon -
+
+NAME - Close SVG Vector
+COLLECTION: Yandex UI Filled Icons
+LICENSE: MLP License
+AUTHOR: Yandex
+
+From svgrepo.com (https://www.svgrepo.com/svg/503004/close)
+
+---------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------
+
+Minimize Icon -
+
+NAME - Minus SVG Vector
+COLLECTION: Dazzle Line Icons
+LICENSE: CC Attribution License
+AUTHOR: Dazzle UI
+
+From svgrepo.com (https://www.svgrepo.com/svg/532960/minus)
 
 ---------------------------------------------------------------------------------
 
